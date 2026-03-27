@@ -140,6 +140,7 @@ model Attachment {
   fileSize     Int?           @map("file_size")
   uploadedById String?        @map("uploaded_by")
   createdAt    DateTime       @default(now()) @map("created_at")
+  asset        Asset?         @relation(fields: [entityId], references: [id])
   @@index([entityType, entityId])
   @@map("attachments")
 }
