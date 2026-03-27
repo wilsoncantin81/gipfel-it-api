@@ -1,6 +1,7 @@
 generator client {
   provider = "prisma-client-js"
 }
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -21,7 +22,11 @@ model User {
   activityLogs ActivityLog[]
   @@map("users")
 }
-enum UserRole { ADMIN TECNICO }
+
+enum UserRole {
+  ADMIN
+  TECNICO
+}
 
 model Client {
   id           String       @id @default(uuid())
@@ -43,12 +48,16 @@ model Client {
   alerts       Alert[]
   @@map("clients")
 }
-enum ClientStatus { ACTIVO INACTIVO }
+
+enum ClientStatus {
+  ACTIVO
+  INACTIVO
+}
 
 model AssetType {
   id          String   @id @default(uuid())
   name        String
-  icon        String   @default("📦")
+  icon        String   @default("box")
   fieldSchema Json     @default("[]") @map("field_schema")
   isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at")
@@ -93,7 +102,12 @@ model Asset {
   @@index([clientId])
   @@map("assets")
 }
-enum AssetStatus { ACTIVO EN_MANTENIMIENTO DADO_DE_BAJA }
+
+enum AssetStatus {
+  ACTIVO
+  EN_MANTENIMIENTO
+  DADO_DE_BAJA
+}
 
 model MaintenanceRecord {
   id           String          @id @default(uuid())
@@ -110,7 +124,11 @@ model MaintenanceRecord {
   @@index([assetId])
   @@map("maintenance_records")
 }
-enum MaintenanceType { PREVENTIVO CORRECTIVO }
+
+enum MaintenanceType {
+  PREVENTIVO
+  CORRECTIVO
+}
 
 model Attachment {
   id           String         @id @default(uuid())
@@ -125,7 +143,13 @@ model Attachment {
   @@index([entityType, entityId])
   @@map("attachments")
 }
-enum AttachmentType { ASSET MAINTENANCE REPORT TICKET }
+
+enum AttachmentType {
+  ASSET
+  MAINTENANCE
+  REPORT
+  TICKET
+}
 
 model ServiceReport {
   id           String      @id @default(uuid())
@@ -148,6 +172,7 @@ model ServiceReport {
   @@index([clientId])
   @@map("service_reports")
 }
+
 model ReportAsset {
   reportId String        @map("report_id")
   assetId  String        @map("asset_id")
@@ -156,7 +181,12 @@ model ReportAsset {
   @@id([reportId, assetId])
   @@map("report_assets")
 }
-enum ServiceType { EN_SITIO REMOTO TELEFONICO }
+
+enum ServiceType {
+  EN_SITIO
+  REMOTO
+  TELEFONICO
+}
 
 model Ticket {
   id           String       @id @default(uuid())
@@ -178,8 +208,19 @@ model Ticket {
   @@index([clientId])
   @@map("tickets")
 }
-enum Priority     { BAJA MEDIA ALTA CRITICA }
-enum TicketStatus { ABIERTO EN_PROCESO CERRADO }
+
+enum Priority {
+  BAJA
+  MEDIA
+  ALTA
+  CRITICA
+}
+
+enum TicketStatus {
+  ABIERTO
+  EN_PROCESO
+  CERRADO
+}
 
 model Alert {
   id        String    @id @default(uuid())
@@ -194,7 +235,12 @@ model Alert {
   asset     Asset?    @relation(fields: [assetId], references: [id])
   @@map("alerts")
 }
-enum AlertType { GARANTIA MANTENIMIENTO TICKET }
+
+enum AlertType {
+  GARANTIA
+  MANTENIMIENTO
+  TICKET
+}
 
 model ActivityLog {
   id         String   @id @default(uuid())
