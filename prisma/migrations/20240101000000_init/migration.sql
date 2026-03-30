@@ -1,0 +1,187 @@
+-- CreateEnum
+CREATE TYPE "UserRole" AS ENUM ('ADMIN', 'TECNICO');
+CREATE TYPE "ClientStatus" AS ENUM ('ACTIVO', 'INACTIVO');
+CREATE TYPE "AssetStatus" AS ENUM ('ACTIVO', 'EN_MANTENIMIENTO', 'DADO_DE_BAJA');
+CREATE TYPE "MaintenanceType" AS ENUM ('PREVENTIVO', 'CORRECTIVO');
+CREATE TYPE "AttachmentType" AS ENUM ('ASSET', 'MAINTENANCE', 'REPORT', 'TICKET');
+CREATE TYPE "ServiceType" AS ENUM ('EN_SITIO', 'REMOTO', 'TELEFONICO');
+CREATE TYPE "Priority" AS ENUM ('BAJA', 'MEDIA', 'ALTA', 'CRITICA');
+CREATE TYPE "TicketStatus" AS ENUM ('ABIERTO', 'EN_PROCESO', 'CERRADO');
+CREATE TYPE "AlertType" AS ENUM ('GARANTIA', 'MANTENIMIENTO', 'TICKET');
+
+CREATE TABLE "users" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "password_hash" TEXT NOT NULL,
+    "role" "UserRole" NOT NULL DEFAULT 'TECNICO',
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "users_pkey" PRIMARY KEY ("id")
+);
+CREATE TABLE "clients" (
+    "id" TEXT NOT NULL,
+    "business_name" TEXT NOT NULL,
+    "nit" TEXT,
+    "address" TEXT,
+    "branch" TEXT,
+    "city" TEXT,
+    "phone" TEXT,
+    "contact_name" TEXT,
+    "email" TEXT,
+    "logo_url" TEXT,
+    "status" "ClientStatus" NOT NULL DEFAULT 'ACTIVO',
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "clients_pkey" PRIMARY KEY ("id")
+);
+CREATE TABLE "asset_types" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "icon" TEXT NOT NULL DEFAULT 'box',
+    "field_schema" JSONB NOT NULL DEFAULT '[]',
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "asset_types_pkey" PRIMARY KEY ("id")
+);
+CREATE TABLE "assets" (
+    "id" TEXT NOT NULL,
+    "client_id" TEXT NOT NULL,
+    "asset_type_id" TEXT NOT NULL,
+    "code" TEXT,
+    "name" TEXT NOT NULL,
+    "brand" TEXT,
+    "model" TEXT,
+    "serial" TEXT,
+    "purchase_date" TIMESTAMP(3),
+    "warranty_until" TIMESTAMP(3),
+    "supplier" TEXT,
+    "assigned_user" TEXT,
+    "responsible" TEXT,
+    "password_enc" TEXT,
+    "remote_access" TEXT,
+    "ip_address" TEXT,
+    "mac_address" TEXT,
+    "location" TEXT,
+    "status" "AssetStatus" NOT NULL DEFAULT 'ACTIVO',
+    "dyn_fields" JSONB NOT NULL DEFAULT '{}',
+    "extra_fields" JSONB NOT NULL DEFAULT '[]',
+    "next_maintenance" TIMESTAMP(3),
+    "qr_code_url" TEXT,
+    "notes" TEXT,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "assets_pkey" PRIMARY KEY ("id")
+);
+CREATE TABLE "maintenance_records" (
+    "id" TEXT NOT NULL,
+    "asset_id" TEXT NOT NULL,
+    "technician_id" TEXT,
+    "date" TIMESTAMP(3) NOT NULL,
+    "type" "MaintenanceType" NOT NULL,
+    "description" TEXT NOT NULL,
+    "time_spent_hours" DOUBLE PRECISION,
+    "next_maintenance" TIMESTAMP(3),
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "maintenance_records_pkey" PRIMARY KEY ("id")
+);
+CREATE TABLE "attachments" (
+    "id" TEXT NOT NULL,
+    "entity_type" "AttachmentType" NOT NULL,
+    "entity_id" TEXT NOT NULL,
+    "file_name" TEXT NOT NULL,
+    "file_url" TEXT NOT NULL,
+    "file_type" TEXT,
+    "file_size" INTEGER,
+    "uploaded_by" TEXT,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "attachments_pkey" PRIMARY KEY ("id")
+);
+CREATE TABLE "service_reports" (
+    "id" TEXT NOT NULL,
+    "report_number" TEXT NOT NULL,
+    "client_id" TEXT NOT NULL,
+    "technician_id" TEXT,
+    "date" TIMESTAMP(3) NOT NULL,
+    "service_type" "ServiceType" NOT NULL,
+    "description" TEXT NOT NULL,
+    "observations" TEXT,
+    "time_used_hours" DOUBLE PRECISION,
+    "signature_url" TEXT,
+    "pdf_url" TEXT,
+    "sent_at" TIMESTAMP(3),
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "service_reports_pkey" PRIMARY KEY ("id")
+);
+CREATE TABLE "report_assets" (
+    "report_id" TEXT NOT NULL,
+    "asset_id" TEXT NOT NULL,
+    CONSTRAINT "report_assets_pkey" PRIMARY KEY ("report_id","asset_id")
+);
+CREATE TABLE "tickets" (
+    "id" TEXT NOT NULL,
+    "ticket_number" TEXT NOT NULL,
+    "client_id" TEXT NOT NULL,
+    "asset_id" TEXT,
+    "assigned_to" TEXT,
+    "title" TEXT NOT NULL,
+    "description" TEXT,
+    "priority" "Priority" NOT NULL DEFAULT 'MEDIA',
+    "status" "TicketStatus" NOT NULL DEFAULT 'ABIERTO',
+    "sla_hours" INTEGER,
+    "resolved_at" TIMESTAMP(3),
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "tickets_pkey" PRIMARY KEY ("id")
+);
+CREATE TABLE "alerts" (
+    "id" TEXT NOT NULL,
+    "client_id" TEXT,
+    "asset_id" TEXT,
+    "type" "AlertType" NOT NULL,
+    "message" TEXT NOT NULL,
+    "due_date" TIMESTAMP(3),
+    "is_read" BOOLEAN NOT NULL DEFAULT false,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "alerts_pkey" PRIMARY KEY ("id")
+);
+CREATE TABLE "activity_logs" (
+    "id" TEXT NOT NULL,
+    "user_id" TEXT,
+    "action" TEXT NOT NULL,
+    "entity_type" TEXT,
+    "entity_id" TEXT,
+    "ip_address" TEXT,
+    "meta" JSONB,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "activity_logs_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
+CREATE UNIQUE INDEX "clients_nit_key" ON "clients"("nit");
+CREATE UNIQUE INDEX "assets_code_key" ON "assets"("code");
+CREATE INDEX "assets_client_id_idx" ON "assets"("client_id");
+CREATE INDEX "maintenance_records_asset_id_idx" ON "maintenance_records"("asset_id");
+CREATE INDEX "attachments_entity_type_entity_id_idx" ON "attachments"("entity_type","entity_id");
+CREATE UNIQUE INDEX "service_reports_report_number_key" ON "service_reports"("report_number");
+CREATE INDEX "service_reports_client_id_idx" ON "service_reports"("client_id");
+CREATE UNIQUE INDEX "tickets_ticket_number_key" ON "tickets"("ticket_number");
+CREATE INDEX "tickets_client_id_idx" ON "tickets"("client_id");
+
+ALTER TABLE "assets" ADD CONSTRAINT "assets_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "clients"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "assets" ADD CONSTRAINT "assets_asset_type_id_fkey" FOREIGN KEY ("asset_type_id") REFERENCES "asset_types"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "maintenance_records" ADD CONSTRAINT "maintenance_records_asset_id_fkey" FOREIGN KEY ("asset_id") REFERENCES "assets"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "maintenance_records" ADD CONSTRAINT "maintenance_records_technician_id_fkey" FOREIGN KEY ("technician_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "attachments" ADD CONSTRAINT "attachments_entity_id_fkey" FOREIGN KEY ("entity_id") REFERENCES "assets"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "service_reports" ADD CONSTRAINT "service_reports_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "clients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "service_reports" ADD CONSTRAINT "service_reports_technician_id_fkey" FOREIGN KEY ("technician_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "report_assets" ADD CONSTRAINT "report_assets_report_id_fkey" FOREIGN KEY ("report_id") REFERENCES "service_reports"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "report_assets" ADD CONSTRAINT "report_assets_asset_id_fkey" FOREIGN KEY ("asset_id") REFERENCES "assets"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "tickets" ADD CONSTRAINT "tickets_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "clients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "tickets" ADD CONSTRAINT "tickets_asset_id_fkey" FOREIGN KEY ("asset_id") REFERENCES "assets"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "tickets" ADD CONSTRAINT "tickets_assigned_to_fkey" FOREIGN KEY ("assigned_to") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "alerts" ADD CONSTRAINT "alerts_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "clients"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "alerts" ADD CONSTRAINT "alerts_asset_id_fkey" FOREIGN KEY ("asset_id") REFERENCES "assets"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "activity_logs" ADD CONSTRAINT "activity_logs_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
