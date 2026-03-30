@@ -20,11 +20,14 @@ export class AuthService {
     const exists = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (exists) throw new ConflictException('Correo ya registrado');
     const passwordHash = await bcrypt.hash(dto.password, 12);
-    const user = await this.prisma.user.create({ data: { name: dto.name, email: dto.email, passwordHash, role: dto.role || 'TECNICO' } });
+    const user = await this.prisma.user.create({ data: { name: dto.name, email: dto.email, passwordHash, role: dto.role||'TECNICO' } });
     const { passwordHash: _, ...result } = user;
     return result;
   }
   async getProfile(userId: string) {
     return this.prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true, role: true, isActive: true } });
+  }
+  async getTechnicians() {
+    return this.prisma.user.findMany({ where: { isActive: true }, select: { id: true, name: true, email: true, role: true }, orderBy: { name: 'asc' } });
   }
 }

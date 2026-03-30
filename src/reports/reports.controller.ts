@@ -12,10 +12,9 @@ export class ReportsController {
   @Post(':id/signature') saveSignature(@Param('id') id: string, @Body() body: any) { return this.service.saveSignature(id, body.signatureUrl); }
   @Get(':id/pdf') async pdf(@Param('id') id: string, @Res() res: Response) {
     const r = await this.service.findOne(id);
-    const html = this.service.buildHtml(r);
     res.setHeader('Content-Type','text/html');
     res.setHeader('Content-Disposition',`attachment; filename="${r.reportNumber}.html"`);
-    res.send(html);
+    res.send(this.service.buildHtml(r));
   }
   @Post(':id/send') sendEmail(@Param('id') id: string) { return this.service.sendByEmail(id); }
 }

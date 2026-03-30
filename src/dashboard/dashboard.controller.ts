@@ -11,4 +11,5 @@ export class DashboardController {
   @Get('maintenance-due') getMaintDue() { return this.service.getMaintenanceDue(); }
   @Get('assets-by-type') getByType() { return this.service.getAssetsByType(); }
   @Get('assets-by-client') getByClient() { return this.service.getAssetsByClient(); }
+  @Get('technician-stats') getTechStats() { return this.service.getTechnicianStats(); }
 }
