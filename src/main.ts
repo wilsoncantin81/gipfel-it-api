@@ -7,16 +7,8 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-// CORS configurado para grupogipfel.com
   app.enableCors({
-    origin: [
-      'https://www.grupogipfel.com',
-      'https://grupogipfel.com',
-      'http://www.grupogipfel.com',
-      'http://localhost:3000',
-      'http://localhost:5500',
-      /\.grupogipfel\.com$/,
-    ],
+    origin: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
@@ -26,7 +18,7 @@ async function bootstrap() {
   app.setGlobalPrefix('api/v1');
 
   const config = new DocumentBuilder()
-   .setTitle('Gipfel IT API')
+    .setTitle('Gipfel IT API')
     .setVersion('1.0')
     .addBearerAuth()
     .build();
@@ -37,5 +29,3 @@ async function bootstrap() {
   console.log(`🚀 Gipfel IT API corriendo en: http://localhost:${port}/api/v1`);
 }
 bootstrap();
-
-
