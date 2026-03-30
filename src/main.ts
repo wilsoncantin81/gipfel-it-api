@@ -7,6 +7,7 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+// CORS configurado para grupogipfel.com
   app.enableCors({
     origin: [
       'https://www.grupogipfel.com',
