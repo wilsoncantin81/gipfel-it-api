@@ -1,7 +1,6 @@
 generator client {
   provider = "prisma-client-js"
 }
-
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -20,13 +19,10 @@ model User {
   reports      ServiceReport[]
   assignedTickets Ticket[] @relation("AssignedTechnician")
   activityLogs ActivityLog[]
+  commissions  Commission[]
   @@map("users")
 }
-
-enum UserRole {
-  ADMIN
-  TECNICO
-}
+enum UserRole { ADMIN TECNICO }
 
 model Client {
   id           String       @id @default(uuid())
@@ -48,11 +44,7 @@ model Client {
   alerts       Alert[]
   @@map("clients")
 }
-
-enum ClientStatus {
-  ACTIVO
-  INACTIVO
-}
+enum ClientStatus { ACTIVO INACTIVO }
 
 model AssetType {
   id          String   @id @default(uuid())
@@ -102,12 +94,7 @@ model Asset {
   @@index([clientId])
   @@map("assets")
 }
-
-enum AssetStatus {
-  ACTIVO
-  EN_MANTENIMIENTO
-  DADO_DE_BAJA
-}
+enum AssetStatus { ACTIVO EN_MANTENIMIENTO DADO_DE_BAJA }
 
 model MaintenanceRecord {
   id           String          @id @default(uuid())
@@ -116,19 +103,18 @@ model MaintenanceRecord {
   date         DateTime
   type         MaintenanceType
   description  String
+  workDone     String?         @map("work_done")
+  parts        Json?
   timeSpent    Float?          @map("time_spent_hours")
   nextMaint    DateTime?       @map("next_maintenance")
+  reportId     String?         @map("report_id")
   createdAt    DateTime        @default(now()) @map("created_at")
   asset        Asset           @relation(fields: [assetId], references: [id], onDelete: Cascade)
   technician   User?           @relation(fields: [technicianId], references: [id])
   @@index([assetId])
   @@map("maintenance_records")
 }
-
-enum MaintenanceType {
-  PREVENTIVO
-  CORRECTIVO
-}
+enum MaintenanceType { PREVENTIVO CORRECTIVO INSTALACION CONFIGURACION }
 
 model Attachment {
   id           String         @id @default(uuid())
@@ -144,13 +130,7 @@ model Attachment {
   @@index([entityType, entityId])
   @@map("attachments")
 }
-
-enum AttachmentType {
-  ASSET
-  MAINTENANCE
-  REPORT
-  TICKET
-}
+enum AttachmentType { ASSET MAINTENANCE REPORT TICKET }
 
 model ServiceReport {
   id           String      @id @default(uuid())
@@ -161,6 +141,7 @@ model ServiceReport {
   serviceType  ServiceType @map("service_type")
   description  String
   observations String?
+  conclusion   String?
   timeUsed     Float?      @map("time_used_hours")
   signatureUrl String?     @map("signature_url")
   pdfUrl       String?     @map("pdf_url")
@@ -170,58 +151,95 @@ model ServiceReport {
   client       Client      @relation(fields: [clientId], references: [id])
   technician   User?       @relation(fields: [technicianId], references: [id])
   assets       ReportAsset[]
+  tickets      Ticket[]
   @@index([clientId])
   @@map("service_reports")
 }
-
 model ReportAsset {
-  reportId String        @map("report_id")
-  assetId  String        @map("asset_id")
-  report   ServiceReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  asset    Asset         @relation(fields: [assetId], references: [id])
+  reportId    String        @map("report_id")
+  assetId     String        @map("asset_id")
+  workDetail  String?       @map("work_detail")
+  report      ServiceReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  asset       Asset         @relation(fields: [assetId], references: [id])
   @@id([reportId, assetId])
   @@map("report_assets")
 }
-
-enum ServiceType {
-  EN_SITIO
-  REMOTO
-  TELEFONICO
-}
+enum ServiceType { EN_SITIO REMOTO TELEFONICO }
 
 model Ticket {
-  id           String       @id @default(uuid())
-  ticketNumber String       @unique @map("ticket_number")
-  clientId     String       @map("client_id")
-  assetId      String?      @map("asset_id")
-  assignedToId String?      @map("assigned_to")
-  title        String
-  description  String?
-  priority     Priority     @default(MEDIA)
-  status       TicketStatus @default(ABIERTO)
-  slaHours     Int?         @map("sla_hours")
-  resolvedAt   DateTime?    @map("resolved_at")
-  createdAt    DateTime     @default(now()) @map("created_at")
-  updatedAt    DateTime     @updatedAt @map("updated_at")
-  client       Client       @relation(fields: [clientId], references: [id])
-  asset        Asset?       @relation(fields: [assetId], references: [id])
-  assignedTo   User?        @relation("AssignedTechnician", fields: [assignedToId], references: [id])
+  id             String       @id @default(uuid())
+  ticketNumber   String       @unique @map("ticket_number")
+  clientId       String       @map("client_id")
+  assetId        String?      @map("asset_id")
+  assignedToId   String?      @map("assigned_to")
+  reportId       String?      @map("report_id")
+  title          String
+  description    String?
+  conclusion     String?
+  priority       Priority     @default(MEDIA)
+  status         TicketStatus @default(NUEVO)
+  invoiceNumber  String?      @map("invoice_number")
+  salePrice      Float?       @map("sale_price")
+  totalCost      Float?       @map("total_cost")
+  utility        Float?
+  slaHours       Int?         @map("sla_hours")
+  resolvedAt     DateTime?    @map("resolved_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  client         Client       @relation(fields: [clientId], references: [id])
+  asset          Asset?       @relation(fields: [assetId], references: [id])
+  assignedTo     User?        @relation("AssignedTechnician", fields: [assignedToId], references: [id])
+  report         ServiceReport? @relation(fields: [reportId], references: [id])
+  tasks          TicketTask[]
+  expenses       TicketExpense[]
+  commission     Commission?
   @@index([clientId])
   @@map("tickets")
 }
+enum Priority     { BAJA MEDIA ALTA CRITICA }
+enum TicketStatus { NUEVO EN_EJECUCION POR_CONFIRMACION PENDIENTE_WILSON POR_FACTURACION CERRADO }
 
-enum Priority {
-  BAJA
-  MEDIA
-  ALTA
-  CRITICA
+model TicketTask {
+  id        String   @id @default(uuid())
+  ticketId  String   @map("ticket_id")
+  title     String
+  done      Boolean  @default(false)
+  order     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  @@map("ticket_tasks")
 }
 
-enum TicketStatus {
-  ABIERTO
-  EN_PROCESO
-  CERRADO
+model TicketExpense {
+  id             String   @id @default(uuid())
+  ticketId       String   @map("ticket_id")
+  date           DateTime
+  description    String
+  supplier       String?
+  supplierInvoice String? @map("supplier_invoice")
+  quantity       Float    @default(1)
+  unitPrice      Float    @map("unit_price")
+  total          Float
+  createdAt      DateTime @default(now()) @map("created_at")
+  ticket         Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  @@map("ticket_expenses")
 }
+
+model Commission {
+  id          String           @id @default(uuid())
+  ticketId    String           @unique @map("ticket_id")
+  userId      String           @map("user_id")
+  amount      Float
+  percentage  Float            @default(10)
+  status      CommissionStatus @default(PENDIENTE)
+  paidAt      DateTime?        @map("paid_at")
+  notes       String?
+  createdAt   DateTime         @default(now()) @map("created_at")
+  ticket      Ticket           @relation(fields: [ticketId], references: [id])
+  user        User             @relation(fields: [userId], references: [id])
+  @@map("commissions")
+}
+enum CommissionStatus { PENDIENTE PAGADA }
 
 model Alert {
   id        String    @id @default(uuid())
@@ -236,12 +254,7 @@ model Alert {
   asset     Asset?    @relation(fields: [assetId], references: [id])
   @@map("alerts")
 }
-
-enum AlertType {
-  GARANTIA
-  MANTENIMIENTO
-  TICKET
-}
+enum AlertType { GARANTIA MANTENIMIENTO TICKET }
 
 model ActivityLog {
   id         String   @id @default(uuid())
