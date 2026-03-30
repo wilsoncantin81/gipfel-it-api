@@ -1,0 +1,35 @@
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
+import { PrismaModule } from './common/prisma.module';
+import { AuthModule } from './auth/auth.module';
+import { ClientsModule } from './clients/clients.module';
+import { AssetTypesModule } from './asset-types/asset-types.module';
+import { AssetsModule } from './assets/assets.module';
+import { MaintenanceModule } from './maintenance/maintenance.module';
+import { ReportsModule } from './reports/reports.module';
+import { TicketsModule } from './tickets/tickets.module';
+import { FilesModule } from './files/files.module';
+import { AlertsModule } from './alerts/alerts.module';
+import { DashboardModule } from './dashboard/dashboard.module';
+import { FinancialsModule } from './financials/financials.module';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
+    PrismaModule,
+    AuthModule,
+    ClientsModule,
+    AssetTypesModule,
+    AssetsModule,
+    MaintenanceModule,
+    ReportsModule,
+    TicketsModule,
+    FilesModule,
+    AlertsModule,
+    DashboardModule,
+    FinancialsModule,
+  ],
+})
+export class AppModule {}
