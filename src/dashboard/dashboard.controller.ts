@@ -49,4 +49,15 @@ export class DashboardController {
   async exportFinancials(@Query() q: any, @Res() res: Response) {
     res.send(await this.service.exportFinancials(q));
   }
+ @Get('technicians')
+getTechnicians() { return this.service.getTechnicians(); }
+
+@Get('financials/summary')
+getFinancialSummary(@Query() q: any) { return this.service.getFinancialSummary(q); }
+
+@Get('financials/commissions')
+getCommissions(@Query() q: any) { return this.service.getCommissions(q); }
+
+@Put('financials/commissions/:id/pay')
+payCommission(@Param('id') id: string, @Body() body: any) { return this.service.payCommission(id, body?.notes); }
 }
