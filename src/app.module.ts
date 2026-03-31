@@ -1,3 +1,4 @@
+// v4 - financials included
 import { Controller, Get, Post, Put, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
