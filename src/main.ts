@@ -15,7 +15,7 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type','Authorization'],
     credentials: true,
   });
-
+app.setGlobalPrefix('api/v1');
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 
   // Register Express routes BEFORE setGlobalPrefix
@@ -166,7 +166,7 @@ async function bootstrap() {
   });
 
   // Now set global prefix and swagger
-  app.setGlobalPrefix('api/v1');
+  
 
   const config = new DocumentBuilder().setTitle('Gipfel IT API').setVersion('1.0').addBearerAuth().build();
   SwaggerModule.setup('api/docs', app, SwaggerModule.createDocument(app, config));
