@@ -4,10 +4,12 @@ import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { PrismaClient } from '@prisma/client';
+import { Request, Response, NextFunction } from 'express';
+
+const prisma = new PrismaClient();
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  const prisma = new PrismaClient();
 
   app.enableCors({
     origin: true,
@@ -15,158 +17,114 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type','Authorization'],
     credentials: true,
   });
-app.setGlobalPrefix('api/v1');
+
+  // Middleware intercepts before NestJS routing
+  app.use(async (req: Request, res: Response, next: NextFunction) => {
+    const path = req.path;
+    const method = req.method;
+
+    if (method === 'GET' && (path === '/api/v1/dashboard/technicians' || path === '/api/v1/auth/technicians')) {
+      try {
+        const users = await prisma.user.findMany({ where: { isActive: true }, select: { id: true, name: true, email: true, role: true }, orderBy: { name: 'asc' } });
+        return res.json(users);
+      } catch(e: any) { return res.status(500).json({ message: e.message }); }
+    }
+
+    if (method === 'GET' && path === '/api/v1/dashboard/financials/summary') {
+      try {
+        const where: any = { status: 'CERRADO' };
+        if (req.query.from) where.resolvedAt = { gte: new Date(req.query.from as string) };
+        if (req.query.to) where.resolvedAt = { ...where.resolvedAt, lte: new Date(req.query.to as string) };
+        if (req.query.technicianId) where.assignedToId = req.query.technicianId;
+        const tickets = await prisma.ticket.findMany({ where, include: { client: true, assignedTo: { select: { id: true, name: true } }, commission: true }, orderBy: { resolvedAt: 'desc' } });
+        return res.json({ tickets, totalSales: tickets.reduce((s,t:any)=>s+(t.salePrice||0),0), totalCosts: tickets.reduce((s,t:any)=>s+(t.totalCost||0),0), totalUtility: tickets.reduce((s,t:any)=>s+(t.utility||0),0), totalCommissions: tickets.reduce((s,t:any)=>s+((t.commission as any)?.amount||0),0), count: tickets.length });
+      } catch(e: any) { return res.status(500).json({ message: e.message }); }
+    }
+
+    if (method === 'GET' && path === '/api/v1/dashboard/financials/commissions') {
+      try {
+        const where: any = {};
+        if (req.query.userId) where.userId = req.query.userId;
+        if (req.query.status) where.status = req.query.status;
+        const commissions = await prisma.commission.findMany({ where, include: { user: { select: { id: true, name: true, email: true } }, ticket: { include: { client: true } } }, orderBy: { createdAt: 'desc' } });
+        return res.json({ commissions, totalPending: commissions.filter((c:any)=>c.status==='PENDIENTE').reduce((s,c:any)=>s+c.amount,0), totalPaid: commissions.filter((c:any)=>c.status==='PAGADA').reduce((s,c:any)=>s+c.amount,0) });
+      } catch(e: any) { return res.status(500).json({ message: e.message }); }
+    }
+
+    if (method === 'PUT' && path.match(/^\/api\/v1\/dashboard\/financials\/commissions\/[^/]+\/pay$/)) {
+      try {
+        const id = path.split('/')[6];
+        const c = await prisma.commission.update({ where: { id }, data: { status: 'PAGADA', paidAt: new Date(), notes: (req.body as any)?.notes } });
+        return res.json(c);
+      } catch(e: any) { return res.status(500).json({ message: e.message }); }
+    }
+
+    if (method === 'GET' && path.match(/^\/api\/v1\/tickets\/[^/]+\/detail$/)) {
+      try {
+        const id = path.split('/')[4];
+        const t = await prisma.ticket.findUnique({ where: { id }, include: { client: true, asset: { include: { assetType: true } }, assignedTo: { select: { id: true, name: true, email: true } }, report: { select: { id: true, reportNumber: true, date: true } }, tasks: { orderBy: { order: 'asc' } }, expenses: { orderBy: { date: 'asc' } }, commission: { include: { user: { select: { id: true, name: true } } } } } });
+        if (!t) return res.status(404).json({ message: 'Ticket no encontrado' });
+        return res.json(t);
+      } catch(e: any) { return res.status(500).json({ message: e.message }); }
+    }
+
+    if (method === 'GET' && path.match(/^\/api\/v1\/tickets\/[^/]+\/expenses\/summary$/)) {
+      try {
+        const id = path.split('/')[4];
+        const [expenses, ticket] = await Promise.all([prisma.ticketExpense.findMany({ where: { ticketId: id } }), prisma.ticket.findUnique({ where: { id } })]);
+        const totalCost = expenses.reduce((s,e:any)=>s+e.total,0);
+        const salePrice = (ticket as any)?.salePrice||0;
+        const utility = salePrice - totalCost;
+        return res.json({ expenses, totalCost, salePrice, utility, commission: utility*0.10 });
+      } catch(e: any) { return res.status(500).json({ message: e.message }); }
+    }
+
+    if (method === 'POST' && path.match(/^\/api\/v1\/tickets\/[^/]+\/tasks$/)) {
+      try {
+        const id = path.split('/')[4];
+        const count = await prisma.ticketTask.count({ where: { ticketId: id } });
+        const task = await prisma.ticketTask.create({ data: { ticketId: id, title: (req.body as any).title, order: count } });
+        return res.json(task);
+      } catch(e: any) { return res.status(500).json({ message: e.message }); }
+    }
+
+    if (method === 'PUT' && path.match(/^\/api\/v1\/tickets\/tasks\/[^/]+\/toggle$/)) {
+      try {
+        const id = path.split('/')[5];
+        const task = await prisma.ticketTask.findUnique({ where: { id } });
+        if (!task) return res.status(404).json({ message: 'Tarea no encontrada' });
+        return res.json(await prisma.ticketTask.update({ where: { id }, data: { done: !task.done } }));
+      } catch(e: any) { return res.status(500).json({ message: e.message }); }
+    }
+
+    if (method === 'DELETE' && path.match(/^\/api\/v1\/tickets\/tasks\/[^/]+$/)) {
+      try {
+        await prisma.ticketTask.delete({ where: { id: path.split('/')[5] } });
+        return res.json({ deleted: true });
+      } catch(e: any) { return res.status(500).json({ message: e.message }); }
+    }
+
+    if (method === 'POST' && path.match(/^\/api\/v1\/tickets\/[^/]+\/expenses$/)) {
+      try {
+        const id = path.split('/')[4];
+        const { date, description, supplier, supplierInvoice, quantity, unitPrice } = req.body as any;
+        const qty = Number(quantity)||1; const price = Number(unitPrice);
+        return res.json(await prisma.ticketExpense.create({ data: { ticketId: id, date: new Date(date), description, supplier, supplierInvoice, quantity: qty, unitPrice: price, total: qty*price } }));
+      } catch(e: any) { return res.status(500).json({ message: e.message }); }
+    }
+
+    if (method === 'DELETE' && path.match(/^\/api\/v1\/tickets\/expenses\/[^/]+$/)) {
+      try {
+        await prisma.ticketExpense.delete({ where: { id: path.split('/')[5] } });
+        return res.json({ deleted: true });
+      } catch(e: any) { return res.status(500).json({ message: e.message }); }
+    }
+
+    next();
+  });
+
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
-
-  // Register Express routes BEFORE setGlobalPrefix
-  const server = app.getHttpAdapter().getInstance();
-
-  server.get('/api/v1/dashboard/technicians', async (req: any, res: any) => {
-    try {
-      const users = await prisma.user.findMany({
-        where: { isActive: true },
-        select: { id: true, name: true, email: true, role: true },
-        orderBy: { name: 'asc' },
-      });
-      res.json(users);
-    } catch(e: any) { res.status(500).json({ message: e.message }); }
-  });
-
-  server.get('/api/v1/auth/technicians', async (req: any, res: any) => {
-    try {
-      const users = await prisma.user.findMany({
-        where: { isActive: true },
-        select: { id: true, name: true, email: true, role: true },
-        orderBy: { name: 'asc' },
-      });
-      res.json(users);
-    } catch(e: any) { res.status(500).json({ message: e.message }); }
-  });
-
-  server.get('/api/v1/dashboard/financials/summary', async (req: any, res: any) => {
-    try {
-      const where: any = { status: 'CERRADO' };
-      if (req.query.from) where.resolvedAt = { gte: new Date(req.query.from) };
-      if (req.query.to) where.resolvedAt = { ...where.resolvedAt, lte: new Date(req.query.to) };
-      if (req.query.technicianId) where.assignedToId = req.query.technicianId;
-      const tickets = await prisma.ticket.findMany({
-        where,
-        include: { client: true, assignedTo: { select: { id: true, name: true } }, commission: true },
-        orderBy: { resolvedAt: 'desc' },
-      });
-      const totalSales = tickets.reduce((s: number, t: any) => s + (t.salePrice||0), 0);
-      const totalCosts = tickets.reduce((s: number, t: any) => s + (t.totalCost||0), 0);
-      const totalUtility = tickets.reduce((s: number, t: any) => s + (t.utility||0), 0);
-      const totalCommissions = tickets.reduce((s: number, t: any) => s + ((t.commission as any)?.amount||0), 0);
-      res.json({ tickets, totalSales, totalCosts, totalUtility, totalCommissions, count: tickets.length });
-    } catch(e: any) { res.status(500).json({ message: e.message }); }
-  });
-
-  server.get('/api/v1/dashboard/financials/commissions', async (req: any, res: any) => {
-    try {
-      const where: any = {};
-      if (req.query.userId) where.userId = req.query.userId;
-      if (req.query.status) where.status = req.query.status;
-      const commissions = await prisma.commission.findMany({
-        where,
-        include: { user: { select: { id: true, name: true, email: true } }, ticket: { include: { client: true } } },
-        orderBy: { createdAt: 'desc' },
-      });
-      const totalPending = commissions.filter((c: any) => c.status === 'PENDIENTE').reduce((s: number, c: any) => s + c.amount, 0);
-      const totalPaid = commissions.filter((c: any) => c.status === 'PAGADA').reduce((s: number, c: any) => s + c.amount, 0);
-      res.json({ commissions, totalPending, totalPaid });
-    } catch(e: any) { res.status(500).json({ message: e.message }); }
-  });
-
-  server.put('/api/v1/dashboard/financials/commissions/:id/pay', async (req: any, res: any) => {
-    try {
-      const c = await prisma.commission.update({
-        where: { id: req.params.id },
-        data: { status: 'PAGADA', paidAt: new Date(), notes: req.body?.notes },
-      });
-      res.json(c);
-    } catch(e: any) { res.status(500).json({ message: e.message }); }
-  });
-
-  server.get('/api/v1/tickets/:id/detail', async (req: any, res: any) => {
-    try {
-      const t = await prisma.ticket.findUnique({
-        where: { id: req.params.id },
-        include: {
-          client: true,
-          asset: { include: { assetType: true } },
-          assignedTo: { select: { id: true, name: true, email: true } },
-          report: { select: { id: true, reportNumber: true, date: true } },
-          tasks: { orderBy: { order: 'asc' } },
-          expenses: { orderBy: { date: 'asc' } },
-          commission: { include: { user: { select: { id: true, name: true } } } },
-        },
-      });
-      if (!t) return res.status(404).json({ message: 'Ticket no encontrado' });
-      res.json(t);
-    } catch(e: any) { res.status(500).json({ message: e.message }); }
-  });
-
-  server.get('/api/v1/tickets/:id/expenses/summary', async (req: any, res: any) => {
-    try {
-      const [expenses, ticket] = await Promise.all([
-        prisma.ticketExpense.findMany({ where: { ticketId: req.params.id } }),
-        prisma.ticket.findUnique({ where: { id: req.params.id } }),
-      ]);
-      const totalCost = expenses.reduce((s: number, e: any) => s + e.total, 0);
-      const salePrice = (ticket as any)?.salePrice || 0;
-      const utility = salePrice - totalCost;
-      res.json({ expenses, totalCost, salePrice, utility, commission: utility * 0.10 });
-    } catch(e: any) { res.status(500).json({ message: e.message }); }
-  });
-
-  server.post('/api/v1/tickets/:id/tasks', async (req: any, res: any) => {
-    try {
-      const count = await prisma.ticketTask.count({ where: { ticketId: req.params.id } });
-      const task = await prisma.ticketTask.create({
-        data: { ticketId: req.params.id, title: req.body.title, order: count },
-      });
-      res.json(task);
-    } catch(e: any) { res.status(500).json({ message: e.message }); }
-  });
-
-  server.put('/api/v1/tickets/tasks/:taskId/toggle', async (req: any, res: any) => {
-    try {
-      const task = await prisma.ticketTask.findUnique({ where: { id: req.params.taskId } });
-      if (!task) return res.status(404).json({ message: 'Tarea no encontrada' });
-      const updated = await prisma.ticketTask.update({ where: { id: req.params.taskId }, data: { done: !task.done } });
-      res.json(updated);
-    } catch(e: any) { res.status(500).json({ message: e.message }); }
-  });
-
-  server.delete('/api/v1/tickets/tasks/:taskId', async (req: any, res: any) => {
-    try {
-      await prisma.ticketTask.delete({ where: { id: req.params.taskId } });
-      res.json({ deleted: true });
-    } catch(e: any) { res.status(500).json({ message: e.message }); }
-  });
-
-  server.post('/api/v1/tickets/:id/expenses', async (req: any, res: any) => {
-    try {
-      const { date, description, supplier, supplierInvoice, quantity, unitPrice } = req.body;
-      const qty = Number(quantity) || 1;
-      const price = Number(unitPrice);
-      const expense = await prisma.ticketExpense.create({
-        data: { ticketId: req.params.id, date: new Date(date), description, supplier, supplierInvoice, quantity: qty, unitPrice: price, total: qty * price },
-      });
-      res.json(expense);
-    } catch(e: any) { res.status(500).json({ message: e.message }); }
-  });
-
-  server.delete('/api/v1/tickets/expenses/:expenseId', async (req: any, res: any) => {
-    try {
-      await prisma.ticketExpense.delete({ where: { id: req.params.expenseId } });
-      res.json({ deleted: true });
-    } catch(e: any) { res.status(500).json({ message: e.message }); }
-  });
-
-  // Now set global prefix and swagger
-  
+  app.setGlobalPrefix('api/v1');
 
   const config = new DocumentBuilder().setTitle('Gipfel IT API').setVersion('1.0').addBearerAuth().build();
   SwaggerModule.setup('api/docs', app, SwaggerModule.createDocument(app, config));
@@ -174,6 +132,5 @@ app.setGlobalPrefix('api/v1');
   const port = process.env.PORT || 3001;
   await app.listen(port);
   console.log(`🚀 Gipfel IT API corriendo en: http://localhost:${port}/api/v1`);
-  console.log(`📚 Docs: http://localhost:${port}/api/docs`);
 }
 bootstrap();
