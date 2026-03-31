@@ -1,10 +1,11 @@
 FROM node:20-slim AS builder
-# Cache bust: 2026-03-31-v5
+# Cache bust: 2026-03-31-v6
 WORKDIR /app
 RUN apt-get update -y && apt-get install -y openssl
 COPY package*.json ./
 RUN npm install
 COPY . .
+RUN find . -name "*.tsbuildinfo" -delete
 RUN rm -rf dist
 RUN npx prisma generate
 RUN npm run build
