@@ -22,8 +22,9 @@ async function bootstrap() {
   app.use(async (req: Request, res: Response, next: NextFunction) => {
     const p = req.path;
     const m = req.method;
+    console.log('MIDDLEWARE HIT:', m, p);
 
-    if (m === 'GET' && (p === '/dashboard/technicians' || p === '/auth/technicians')) {
+    if (m === 'GET' && (p === '/dashboard/technicians' || p === '/auth/technicians' || p === '/api/v1/dashboard/technicians' || p === '/api/v1/auth/technicians')) {
       try {
         const users = await prisma.user.findMany({ where: { isActive: true }, select: { id: true, name: true, email: true, role: true }, orderBy: { name: 'asc' } });
         return res.json(users);
