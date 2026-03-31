@@ -1,3 +1,4 @@
+// v2 test
 async getTechnicians() {
   return this.prisma.user.findMany({
     where: { isActive: true },
