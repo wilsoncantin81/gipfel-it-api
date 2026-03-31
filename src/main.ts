@@ -18,19 +18,19 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // Middleware intercepts before NestJS routing
+  // Middleware - path does NOT include /api/v1 prefix in NestJS
   app.use(async (req: Request, res: Response, next: NextFunction) => {
-    const path = req.path;
-    const method = req.method;
+    const p = req.path;
+    const m = req.method;
 
-    if (method === 'GET' && (path === '/api/v1/dashboard/technicians' || path === '/api/v1/auth/technicians')) {
+    if (m === 'GET' && (p === '/dashboard/technicians' || p === '/auth/technicians')) {
       try {
         const users = await prisma.user.findMany({ where: { isActive: true }, select: { id: true, name: true, email: true, role: true }, orderBy: { name: 'asc' } });
         return res.json(users);
       } catch(e: any) { return res.status(500).json({ message: e.message }); }
     }
 
-    if (method === 'GET' && path === '/api/v1/dashboard/financials/summary') {
+    if (m === 'GET' && p === '/dashboard/financials/summary') {
       try {
         const where: any = { status: 'CERRADO' };
         if (req.query.from) where.resolvedAt = { gte: new Date(req.query.from as string) };
@@ -41,7 +41,7 @@ async function bootstrap() {
       } catch(e: any) { return res.status(500).json({ message: e.message }); }
     }
 
-    if (method === 'GET' && path === '/api/v1/dashboard/financials/commissions') {
+    if (m === 'GET' && p === '/dashboard/financials/commissions') {
       try {
         const where: any = {};
         if (req.query.userId) where.userId = req.query.userId;
@@ -51,26 +51,25 @@ async function bootstrap() {
       } catch(e: any) { return res.status(500).json({ message: e.message }); }
     }
 
-    if (method === 'PUT' && path.match(/^\/api\/v1\/dashboard\/financials\/commissions\/[^/]+\/pay$/)) {
+    if (m === 'PUT' && p.match(/^\/dashboard\/financials\/commissions\/[^/]+\/pay$/)) {
       try {
-        const id = path.split('/')[6];
-        const c = await prisma.commission.update({ where: { id }, data: { status: 'PAGADA', paidAt: new Date(), notes: (req.body as any)?.notes } });
-        return res.json(c);
+        const id = p.split('/')[4];
+        return res.json(await prisma.commission.update({ where: { id }, data: { status: 'PAGADA', paidAt: new Date(), notes: (req.body as any)?.notes } }));
       } catch(e: any) { return res.status(500).json({ message: e.message }); }
     }
 
-    if (method === 'GET' && path.match(/^\/api\/v1\/tickets\/[^/]+\/detail$/)) {
+    if (m === 'GET' && p.match(/^\/tickets\/[^/]+\/detail$/)) {
       try {
-        const id = path.split('/')[4];
+        const id = p.split('/')[2];
         const t = await prisma.ticket.findUnique({ where: { id }, include: { client: true, asset: { include: { assetType: true } }, assignedTo: { select: { id: true, name: true, email: true } }, report: { select: { id: true, reportNumber: true, date: true } }, tasks: { orderBy: { order: 'asc' } }, expenses: { orderBy: { date: 'asc' } }, commission: { include: { user: { select: { id: true, name: true } } } } } });
         if (!t) return res.status(404).json({ message: 'Ticket no encontrado' });
         return res.json(t);
       } catch(e: any) { return res.status(500).json({ message: e.message }); }
     }
 
-    if (method === 'GET' && path.match(/^\/api\/v1\/tickets\/[^/]+\/expenses\/summary$/)) {
+    if (m === 'GET' && p.match(/^\/tickets\/[^/]+\/expenses\/summary$/)) {
       try {
-        const id = path.split('/')[4];
+        const id = p.split('/')[2];
         const [expenses, ticket] = await Promise.all([prisma.ticketExpense.findMany({ where: { ticketId: id } }), prisma.ticket.findUnique({ where: { id } })]);
         const totalCost = expenses.reduce((s,e:any)=>s+e.total,0);
         const salePrice = (ticket as any)?.salePrice||0;
@@ -79,43 +78,42 @@ async function bootstrap() {
       } catch(e: any) { return res.status(500).json({ message: e.message }); }
     }
 
-    if (method === 'POST' && path.match(/^\/api\/v1\/tickets\/[^/]+\/tasks$/)) {
+    if (m === 'POST' && p.match(/^\/tickets\/[^/]+\/tasks$/)) {
       try {
-        const id = path.split('/')[4];
+        const id = p.split('/')[2];
         const count = await prisma.ticketTask.count({ where: { ticketId: id } });
-        const task = await prisma.ticketTask.create({ data: { ticketId: id, title: (req.body as any).title, order: count } });
-        return res.json(task);
+        return res.json(await prisma.ticketTask.create({ data: { ticketId: id, title: (req.body as any).title, order: count } }));
       } catch(e: any) { return res.status(500).json({ message: e.message }); }
     }
 
-    if (method === 'PUT' && path.match(/^\/api\/v1\/tickets\/tasks\/[^/]+\/toggle$/)) {
+    if (m === 'PUT' && p.match(/^\/tickets\/tasks\/[^/]+\/toggle$/)) {
       try {
-        const id = path.split('/')[5];
+        const id = p.split('/')[3];
         const task = await prisma.ticketTask.findUnique({ where: { id } });
         if (!task) return res.status(404).json({ message: 'Tarea no encontrada' });
         return res.json(await prisma.ticketTask.update({ where: { id }, data: { done: !task.done } }));
       } catch(e: any) { return res.status(500).json({ message: e.message }); }
     }
 
-    if (method === 'DELETE' && path.match(/^\/api\/v1\/tickets\/tasks\/[^/]+$/)) {
+    if (m === 'DELETE' && p.match(/^\/tickets\/tasks\/[^/]+$/)) {
       try {
-        await prisma.ticketTask.delete({ where: { id: path.split('/')[5] } });
+        await prisma.ticketTask.delete({ where: { id: p.split('/')[3] } });
         return res.json({ deleted: true });
       } catch(e: any) { return res.status(500).json({ message: e.message }); }
     }
 
-    if (method === 'POST' && path.match(/^\/api\/v1\/tickets\/[^/]+\/expenses$/)) {
+    if (m === 'POST' && p.match(/^\/tickets\/[^/]+\/expenses$/)) {
       try {
-        const id = path.split('/')[4];
+        const id = p.split('/')[2];
         const { date, description, supplier, supplierInvoice, quantity, unitPrice } = req.body as any;
         const qty = Number(quantity)||1; const price = Number(unitPrice);
         return res.json(await prisma.ticketExpense.create({ data: { ticketId: id, date: new Date(date), description, supplier, supplierInvoice, quantity: qty, unitPrice: price, total: qty*price } }));
       } catch(e: any) { return res.status(500).json({ message: e.message }); }
     }
 
-    if (method === 'DELETE' && path.match(/^\/api\/v1\/tickets\/expenses\/[^/]+$/)) {
+    if (m === 'DELETE' && p.match(/^\/tickets\/expenses\/[^/]+$/)) {
       try {
-        await prisma.ticketExpense.delete({ where: { id: path.split('/')[5] } });
+        await prisma.ticketExpense.delete({ where: { id: p.split('/')[3] } });
         return res.json({ deleted: true });
       } catch(e: any) { return res.status(500).json({ message: e.message }); }
     }
