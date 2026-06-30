@@ -1,65 +1,228 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
-import { paginate } from '../common/pagination.dto';
+
 @Injectable()
 export class TicketsService {
   constructor(private prisma: PrismaService) {}
-  private async nextNumber() { const count = await this.prisma.ticket.count(); return `TK-${String(count+1).padStart(4,'0')}`; }
-  async findAll(query: any) {
+
+  async findAll(q: any) {
     const where: any = {};
-    if (query.clientId) where.clientId = query.clientId;
-    if (query.status) where.status = query.status;
-    if (query.priority) where.priority = query.priority;
-    if (query.assignedToId) where.assignedToId = query.assignedToId;
-    if (query.search) where.OR = [{ title: { contains: query.search, mode: 'insensitive' } }, { ticketNumber: { contains: query.search, mode: 'insensitive' } }];
-    const { skip, take } = paginate(query.page, query.limit);
-    const [data, total] = await Promise.all([
-      this.prisma.ticket.findMany({ where, skip, take, include: { client: true, asset: true, assignedTo: { select: { id: true, name: true } }, report: { select: { id: true, reportNumber: true } }, tasks: { orderBy: { order: 'asc' } }, _count: { select: { expenses: true } } }, orderBy: { createdAt: 'desc' } }),
-      this.prisma.ticket.count({ where }),
-    ]);
-    return { data, total };
+    if (q.status) where.status = q.status;
+    if (q.clientId) where.clientId = q.clientId;
+    if (q.assignedToId) where.assignedToId = q.assignedToId;
+    if (q.priority) where.priority = q.priority;
+    return this.prisma.ticket.findMany({
+      where,
+      include: {
+        client: { select: { id: true, businessName: true } },
+        assignedTo: { select: { id: true, name: true } },
+        _count: { select: { tasks: true, expenses: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
   }
+
   async findOne(id: string) {
-    const t = await this.prisma.ticket.findUnique({ where: { id }, include: { client: true, asset: { include: { assetType: true } }, assignedTo: { select: { id: true, name: true, email: true } }, report: { select: { id: true, reportNumber: true, date: true } }, tasks: { orderBy: { order: 'asc' } }, expenses: { orderBy: { date: 'asc' } }, commission: { include: { user: { select: { id: true, name: true } } } } } });
-    if (!t) throw new NotFoundException('Ticket no encontrado');
-    return t;
+    const ticket = await this.prisma.ticket.findUnique({
+      where: { id },
+      include: {
+        client: true,
+        asset: { include: { assetType: true } },
+        assignedTo: { select: { id: true, name: true, email: true } },
+        report: { select: { id: true, reportNumber: true, date: true } },
+        tasks: { orderBy: { order: 'asc' } },
+        expenses: { orderBy: { date: 'asc' } },
+        commission: { include: { user: { select: { id: true, name: true } } } },
+      },
+    });
+    // Add status logs
+    const statusLogs = await (this.prisma as any).$queryRaw`
+      SELECT * FROM ticket_status_logs WHERE ticket_id = ${id} ORDER BY changed_at ASC
+    `;
+    return { ...ticket, statusLogs };
   }
+
+  async getTask(id: string) {
+    return this.prisma.ticketTask.findUnique({ where: { id } });
+  }
+
+  async getExpenseSummary(id: string) {
+    const [expenses, ticket] = await Promise.all([
+      this.prisma.ticketExpense.findMany({ where: { ticketId: id } }),
+      this.prisma.ticket.findUnique({ where: { id } }),
+    ]);
+    const totalCost = expenses.reduce((s, e) => s + e.total, 0);
+    const salePrice = ticket?.salePrice || 0;
+    const utility = salePrice - totalCost;
+    return { expenses, totalCost, salePrice, utility, commission: utility * 0.1 };
+  }
+
   async create(dto: any) {
-    const ticketNumber = await this.nextNumber();
-    return this.prisma.ticket.create({ data: { ticketNumber, clientId: dto.clientId, assetId: dto.assetId||undefined, assignedToId: dto.assignedToId||undefined, title: dto.title, description: dto.description, priority: dto.priority||'MEDIA', status: 'NUEVO', tasks: dto.tasks?.length ? { create: dto.tasks.map((t: any, i: number) => ({ title: t, order: i })) } : undefined }, include: { client: true, assignedTo: { select: { id: true, name: true } }, tasks: true } });
-  }
-  async update(id: string, dto: any) {
-    await this.findOne(id);
+    const count = await this.prisma.ticket.count();
+    const ticketNumber = `TKT-${String(count + 1).padStart(5, '0')}`;
     const { tasks, ...rest } = dto;
-    return this.prisma.ticket.update({ where: { id }, data: rest, include: { client: true, assignedTo: { select: { id: true, name: true } }, tasks: true, expenses: true } });
+    const data: any = {
+      ticketNumber,
+      clientId: rest.clientId,
+      title: rest.title,
+      description: rest.description || undefined,
+      priority: rest.priority || 'MEDIA',
+      status: 'NUEVO',
+      assetId: rest.assetId || undefined,
+      assignedToId: rest.assignedToId || undefined,
+    };
+    if (tasks && tasks.length > 0) {
+      data.tasks = { create: tasks.map((title: string, i: number) => ({ title, order: i })) };
+    }
+    const ticket = await this.prisma.ticket.create({ data, include: { client: true } });
+    // Log initial status
+    await this.logStatusChange(ticket.id, 'NUEVO', rest.userId);
+    return ticket;
   }
-  async updateStatus(id: string, status: string, extra?: any) {
-    const ticket = await this.findOne(id);
+
+  async update(id: string, dto: any) {
+    return this.prisma.ticket.update({ where: { id }, data: dto });
+  }
+
+  private async logStatusChange(ticketId: string, status: string, userId?: string) {
+    try {
+      await (this.prisma as any).$executeRaw`
+        INSERT INTO ticket_status_logs (id, ticket_id, status, changed_at, changed_by)
+        VALUES (gen_random_uuid()::text, ${ticketId}, ${status}, now(), ${userId || null})
+      `;
+    } catch {}
+  }
+
+  async updateStatus(id: string, body: any, userId?: string) {
+    const { status, conclusion, invoiceNumber, salePrice, reportId } = body;
+
     if (status === 'CERRADO') {
-      if (!ticket.reportId) throw new BadRequestException('Debe asociar un reporte antes de cerrar el ticket');
-      if (!ticket.conclusion) throw new BadRequestException('Debe agregar una conclusión antes de cerrar el ticket');
+      const isNormalClosure = !body.closureType || body.closureType === 'NORMAL';
+      if (isNormalClosure) {
+        const ticket = await this.prisma.ticket.findUnique({ where: { id } });
+        if (!ticket?.invoiceNumber && !invoiceNumber) {
+          throw new BadRequestException('Se requiere número de factura para cierre normal');
+        }
+      }
+    }
+
+    const { closureType, commissionPercentage } = body;
+    const data: any = { status };
+    if (conclusion) data.conclusion = conclusion;
+    if (invoiceNumber) data.invoiceNumber = invoiceNumber;
+    if (salePrice !== undefined) data.salePrice = salePrice;
+    if (reportId !== undefined) data.reportId = reportId || null;
+    if (closureType) data.closureType = closureType;
+    if (status === 'CERRADO') {
+      data.resolvedAt = new Date();
+      const ticket = await this.prisma.ticket.findUnique({ where: { id } });
+      // Only calculate sale for NORMAL closure type
+      const isNormal = !closureType || closureType === 'NORMAL';
+      const finalSalePrice = isNormal ? (salePrice || ticket?.salePrice || 0) : 0;
+      const finalCost = ticket?.totalCost || 0;
+      const utility = finalSalePrice - finalCost;
+      data.utility = utility;
+      data.salePrice = finalSalePrice;
+      // Handle commission
+      const commPct = commissionPercentage !== undefined ? Number(commissionPercentage) : 10;
+      if (ticket?.assignedToId && utility > 0 && commPct > 0) {
+        const commAmount = utility * (commPct / 100);
+        await this.prisma.commission.upsert({
+          where: { ticketId: id },
+          create: { ticketId: id, userId: ticket.assignedToId, amount: commAmount, percentage: commPct },
+          update: { amount: commAmount, percentage: commPct },
+        });
+      } else if (commPct === 0) {
+        // Delete commission if exists
+        await this.prisma.commission.deleteMany({ where: { ticketId: id } }).catch(() => {});
+      }
+    }
+
+    const updated = await this.prisma.ticket.update({ where: { id }, data });
+    await this.logStatusChange(id, status, userId);
+    return updated;
+  }
+
+  async updateBilling(id: string, body: any) {
+    const { invoiceNumber, salePrice, conclusion } = body;
+    const data: any = {};
+    if (invoiceNumber !== undefined) data.invoiceNumber = invoiceNumber;
+    if (salePrice !== undefined) {
+      data.salePrice = salePrice;
       const expenses = await this.prisma.ticketExpense.findMany({ where: { ticketId: id } });
       const totalCost = expenses.reduce((s, e) => s + e.total, 0);
-      const salePrice = extra?.salePrice || ticket.salePrice || 0;
-      const utility = salePrice - totalCost;
-      const updated = await this.prisma.ticket.update({ where: { id }, data: { status: 'CERRADO', resolvedAt: new Date(), totalCost, utility, invoiceNumber: extra?.invoiceNumber||ticket.invoiceNumber, salePrice } });
-      if (ticket.assignedToId && utility > 0) {
-        await this.prisma.commission.upsert({ where: { ticketId: id }, update: { amount: utility * 0.10, userId: ticket.assignedToId }, create: { ticketId: id, userId: ticket.assignedToId, amount: utility * 0.10, percentage: 10, status: 'PENDIENTE' } });
-      }
-      return updated;
+      data.totalCost = totalCost;
+      data.utility = salePrice - totalCost;
     }
-    const data: any = { status };
-    if (extra?.conclusion) data.conclusion = extra.conclusion;
-    if (extra?.invoiceNumber) data.invoiceNumber = extra.invoiceNumber;
-    if (extra?.salePrice) data.salePrice = extra.salePrice;
-    if (extra?.reportId) data.reportId = extra.reportId;
+    if (conclusion !== undefined) data.conclusion = conclusion;
     return this.prisma.ticket.update({ where: { id }, data });
   }
-  async addTask(ticketId: string, title: string) { const count = await this.prisma.ticketTask.count({ where: { ticketId } }); return this.prisma.ticketTask.create({ data: { ticketId, title, order: count } }); }
-  async toggleTask(taskId: string) { const task = await this.prisma.ticketTask.findUnique({ where: { id: taskId } }); if (!task) throw new NotFoundException(); return this.prisma.ticketTask.update({ where: { id: taskId }, data: { done: !task.done } }); }
-  async deleteTask(taskId: string) { return this.prisma.ticketTask.delete({ where: { id: taskId } }); }
-  async addExpense(ticketId: string, dto: any) { return this.prisma.ticketExpense.create({ data: { ticketId, date: new Date(dto.date), description: dto.description, supplier: dto.supplier, supplierInvoice: dto.supplierInvoice, quantity: dto.quantity, unitPrice: dto.unitPrice, total: dto.quantity * dto.unitPrice } }); }
-  async deleteExpense(expenseId: string) { return this.prisma.ticketExpense.delete({ where: { id: expenseId } }); }
-  async getExpenseSummary(ticketId: string) { const [expenses, ticket] = await Promise.all([this.prisma.ticketExpense.findMany({ where: { ticketId } }), this.prisma.ticket.findUnique({ where: { id: ticketId } })]); const totalCost = expenses.reduce((s, e) => s + e.total, 0); const salePrice = ticket?.salePrice||0; const utility = salePrice - totalCost; return { expenses, totalCost, salePrice, utility, commission: utility * 0.10 }; }
-  async remove(id: string) { return this.prisma.ticket.delete({ where: { id } }); }
+
+  async getStatusLogs(id: string) {
+    const logs: any[] = await (this.prisma as any).$queryRaw`
+      SELECT l.*, u.name as user_name
+      FROM ticket_status_logs l
+      LEFT JOIN users u ON l.changed_by = u.id
+      WHERE l.ticket_id = ${id}
+      ORDER BY l.changed_at ASC
+    `;
+    // Calculate duration between statuses
+    return logs.map((log, i) => ({
+      ...log,
+      changedAt: log.changed_at,
+      status: log.status,
+      userName: log.user_name,
+      durationMs: i < logs.length - 1
+        ? new Date(logs[i + 1].changed_at).getTime() - new Date(log.changed_at).getTime()
+        : Date.now() - new Date(log.changed_at).getTime(),
+    }));
+  }
+
+  async addTask(ticketId: string, title: string) {
+    const count = await this.prisma.ticketTask.count({ where: { ticketId } });
+    return this.prisma.ticketTask.create({ data: { ticketId, title, order: count } });
+  }
+
+  async toggleTask(id: string) {
+    const task = await this.prisma.ticketTask.findUnique({ where: { id } });
+    if (!task) throw new BadRequestException('Tarea no encontrada');
+    return this.prisma.ticketTask.update({ where: { id }, data: { done: !task.done } });
+  }
+
+  async deleteTask(id: string) {
+    await this.prisma.ticketTask.delete({ where: { id } });
+    return { deleted: true };
+  }
+
+  async addExpense(ticketId: string, dto: any) {
+    const qty = Number(dto.quantity) || 1;
+    const price = Number(dto.unitPrice);
+    const total = qty * price;
+    const expense = await this.prisma.ticketExpense.create({
+      data: { ticketId, date: new Date(dto.date + 'T12:00:00'), description: dto.description, supplier: dto.supplier, supplierInvoice: dto.supplierInvoice, quantity: qty, unitPrice: price, total },
+    });
+    const allExpenses = await this.prisma.ticketExpense.findMany({ where: { ticketId } });
+    const totalCost = allExpenses.reduce((s, e) => s + e.total, 0);
+    const ticket = await this.prisma.ticket.findUnique({ where: { id: ticketId } });
+    const utility = (ticket?.salePrice || 0) - totalCost;
+    await this.prisma.ticket.update({ where: { id: ticketId }, data: { totalCost, utility } });
+    return expense;
+  }
+
+  async deleteExpense(id: string) {
+    const expense = await this.prisma.ticketExpense.findUnique({ where: { id } });
+    if (!expense) throw new BadRequestException('Gasto no encontrado');
+    await this.prisma.ticketExpense.delete({ where: { id } });
+    const allExpenses = await this.prisma.ticketExpense.findMany({ where: { ticketId: expense.ticketId } });
+    const totalCost = allExpenses.reduce((s, e) => s + e.total, 0);
+    const ticket = await this.prisma.ticket.findUnique({ where: { id: expense.ticketId } });
+    const utility = (ticket?.salePrice || 0) - totalCost;
+    await this.prisma.ticket.update({ where: { id: expense.ticketId }, data: { totalCost, utility } });
+    return { deleted: true };
+  }
+
+  async remove(id: string) {
+    await this.prisma.ticket.delete({ where: { id } });
+    return { deleted: true };
+  }
 }
