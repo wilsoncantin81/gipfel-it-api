@@ -72,7 +72,6 @@ export class ReportsService {
         observations: observations || undefined,
         conclusion: conclusion || undefined,
         signatureUrl: signatureUrl || undefined,
-        receivedBy: receivedBy || undefined,
         assets: assetIds?.length
           ? { create: assetIds.map((a: any) => ({ assetId: typeof a === 'string' ? a : a.id })) }
           : undefined,
@@ -89,6 +88,7 @@ export class ReportsService {
           await this.prisma.maintenanceRecord.create({
             data: {
               assetId,
+              date: new Date(data.date),
               technicianId: data.technicianId || undefined,
               type: 'CORRECTIVO',
               description: data.description || 'Servicio técnico',
