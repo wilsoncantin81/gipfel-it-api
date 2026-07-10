@@ -24,7 +24,11 @@ model User {
   commissions  Commission[]
   @@map("users")
 }
-enum UserRole { ADMIN TECNICO }
+enum UserRole {
+  ADMIN
+  TECNICO
+  CLIENTE
+}
 
 model Client {
   id           String       @id @default(uuid())
