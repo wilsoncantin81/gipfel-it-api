@@ -51,7 +51,10 @@ model Client {
   @@map("clients")
   users            User[]
 }
-enum ClientStatus { ACTIVO INACTIVO }
+enum ClientStatus {
+ACTIVO
+INACTIVO
+}
 
 model AssetType {
   id          String   @id @default(uuid())
@@ -101,7 +104,11 @@ model Asset {
   @@index([clientId])
   @@map("assets")
 }
-enum AssetStatus { ACTIVO EN_MANTENIMIENTO DADO_DE_BAJA }
+enum AssetStatus {
+ACTIVO
+EN_MANTENIMIENTO
+DADO_DE_BAJA
+}
 
 model MaintenanceRecord {
   id           String          @id @default(uuid())
@@ -121,7 +128,12 @@ model MaintenanceRecord {
   @@index([assetId])
   @@map("maintenance_records")
 }
-enum MaintenanceType { PREVENTIVO CORRECTIVO INSTALACION CONFIGURACION }
+enum MaintenanceType {
+PREVENTIVO
+CORRECTIVO
+INSTALACION
+CONFIGURACION
+}
 
 model Attachment {
   id           String         @id @default(uuid())
@@ -137,7 +149,12 @@ model Attachment {
   @@index([entityType, entityId])
   @@map("attachments")
 }
-enum AttachmentType { ASSET MAINTENANCE REPORT TICKET }
+enum AttachmentType {
+ASSET
+MAINTENANCE
+REPORT
+TICKET
+}
 
 model ServiceReport {
   id           String      @id @default(uuid())
@@ -171,7 +188,11 @@ model ReportAsset {
   @@id([reportId, assetId])
   @@map("report_assets")
 }
-enum ServiceType { EN_SITIO REMOTO TELEFONICO }
+enum ServiceType {
+EN_SITIO
+REMOTO
+TELEFONICO
+}
 
 model Ticket {
   id             String       @id @default(uuid())
@@ -203,8 +224,20 @@ model Ticket {
   @@index([clientId])
   @@map("tickets")
 }
-enum Priority     { BAJA MEDIA ALTA CRITICA }
-enum TicketStatus { NUEVO EN_EJECUCION POR_CONFIRMACION PENDIENTE_WILSON POR_FACTURACION CERRADO }
+enum Priority {
+BAJA
+MEDIA
+ALTA
+CRITICA
+}
+enum TicketStatus {
+NUEVO
+EN_EJECUCION
+POR_CONFIRMACION
+PENDIENTE_WILSON
+POR_FACTURACION
+CERRADO
+}
 
 model TicketTask {
   id        String   @id @default(uuid())
@@ -246,7 +279,10 @@ model Commission {
   user        User             @relation(fields: [userId], references: [id])
   @@map("commissions")
 }
-enum CommissionStatus { PENDIENTE PAGADA }
+enum CommissionStatus {
+PENDIENTE
+PAGADA
+}
 
 model Alert {
   id        String    @id @default(uuid())
@@ -261,7 +297,11 @@ model Alert {
   asset     Asset?    @relation(fields: [assetId], references: [id])
   @@map("alerts")
 }
-enum AlertType { GARANTIA MANTENIMIENTO TICKET }
+enum AlertType {
+GARANTIA
+MANTENIMIENTO
+TICKET
+}
 
 model ActivityLog {
   id         String   @id @default(uuid())
