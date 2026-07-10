@@ -35,8 +35,8 @@ export class AssetsService {
     }
     if (q.search) where.OR = [
       { name: { contains: q.search, mode: 'insensitive' } },
-      { inventoryCode: { contains: q.search, mode: 'insensitive' } },
-      { serialNumber: { contains: q.search, mode: 'insensitive' } },
+      { code: { contains: q.search, mode: 'insensitive' } },
+      { serial: { contains: q.search, mode: 'insensitive' } },
       { brand: { contains: q.search, mode: 'insensitive' } },
     ];
     return this.prisma.asset.findMany({
@@ -63,17 +63,16 @@ export class AssetsService {
       name: dto.name,
       brand: dto.brand || undefined,
       model: dto.model || undefined,
-      serialNumber: dto.serialNumber || dto.serial || undefined,
-      inventoryCode: dto.inventoryCode || dto.code || undefined,
+            serial: dto.serialNumber || dto.serial || undefined,
+            code: dto.inventoryCode || dto.code || undefined,
       purchaseDate: dto.purchaseDate ? parseDate(dto.purchaseDate) : undefined,
       warrantyUntil: dto.warrantyUntil ? parseDate(dto.warrantyUntil) : undefined,
       location: dto.location || undefined,
       status: dto.status || 'ACTIVO',
       notes: dto.notes || undefined,
-      encryptedPassword: dto.password ? Buffer.from(dto.password).toString('base64') : undefined,
+            passwordEnc: dto.password ? Buffer.from(dto.password).toString('base64') : undefined,
       nextMaintenance: dto.nextMaintenance ? parseDate(dto.nextMaintenance) : undefined,
-      maintenanceFrequencyDays: dto.maintenanceFrequencyDays ? Number(dto.maintenanceFrequencyDays) : undefined,
-      supplier: dto.supplier || undefined,
+            supplier: dto.supplier || undefined,
       assignedUser: dto.assignedUser || undefined,
       responsible: dto.responsible || undefined,
       ipAddress: dto.ipAddress || undefined,
@@ -115,9 +114,8 @@ export class AssetsService {
 
   async getPassword(id: string) {
     const a = await this.prisma.asset.findUnique({ where: { id } });
-    if (!a?.encryptedPassword) return { password: null };
-    try { return { password: Buffer.from(a.encryptedPassword, 'base64').toString('utf8') }; }
-    catch { return { password: a.encryptedPassword }; }
+        try { return { password: Buffer.from(a.passwordEnc, 'base64').toString('utf8') }; }
+      catch { return { password: a.passwordEnc }; }
   }
 
   async getQR(id: string) {
@@ -206,13 +204,13 @@ export class AssetsService {
       } catch {}
 
       const vals = [
-        a.inventoryCode || '',
+                a.code || '',
         a.name,
         a.assetType?.name || '',
         a.client?.businessName || '',
         a.brand || '',
         a.model || '',
-        a.serialNumber || '',
+              a.serial || '',
         a.status,
         a.location || '',
         (a as any).supplier || '',
@@ -369,12 +367,12 @@ export class AssetsService {
       doc.rect(margin, y, cw, rowH).fill(i % 2 === 0 ? white : lightGray).stroke('#EEEEEE');
       tx = margin;
       const vals = [
-        a.inventoryCode || '–',
+              a.code || '-',
         a.name,
         a.assetType?.name || '–',
         a.client?.businessName || '–',
         `${a.brand || ''} ${a.model || ''}`.trim() || '–',
-        a.serialNumber || '–',
+              a.serial || '-',
         a.status,
         a.location || '–',
         a.warrantyUntil ? new Date(a.warrantyUntil).toLocaleDateString('es-CO') : '–',
@@ -447,8 +445,8 @@ export class AssetsService {
     const boxH = 26;
     const col = cw / 3;
     const row1 = [
-      ['N° Inventario', a.inventoryCode || '–'],
-      ['Serial', a.serialNumber || '–'],
+            ['N° Inventario', a.code || '-'],
+            ['Serial', a.serial || '-'],
       ['Estado', a.status],
     ];
     row1.forEach(([label, value], i) => {
@@ -643,8 +641,8 @@ export class AssetsService {
             name: row.nombre || row.name,
             brand: row.marca || row.brand || undefined,
             model: row.modelo || row.model || undefined,
-            serialNumber: row.serial || row.serialNumber || undefined,
-            inventoryCode: row.codigo || row.inventoryCode || undefined,
+                      serial: row.serial || row.serialNumber || undefined,
+                      code: row.codigo || row.inventoryCode || undefined,
             location: row.ubicacion || row.location || undefined,
             status: (row.estado || row.status || 'ACTIVO').toUpperCase(),
             notes: row.notas || row.notes || undefined,
