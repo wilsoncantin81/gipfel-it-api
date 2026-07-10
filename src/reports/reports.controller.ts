@@ -16,5 +16,5 @@ export class ReportsController {
     res.setHeader('Content-Disposition',`attachment; filename="${r.reportNumber}.html"`);
     res.send(this.service.buildHtml(r));
   }
-  @Post(':id/send') sendEmail(@Param('id') id: string) { return this.service.sendByEmail(id); }
+  @Post(':id/send') sendEmail(@Param('id') id: string) { return this.service.sendEmail(id); }
 }
