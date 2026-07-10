@@ -32,11 +32,15 @@ export class AuthService {
     const exists = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (exists) throw new ConflictException('Correo ya registrado');
     const passwordHash = await bcrypt.hash(dto.password, 12);
-    const user = await this.prisma.user.create({ 
-      data: { name: dto.name, email: dto.email, passwordHash, role: (dto.role || 'TECNICO') as any, permissions: ALL_MODULES as any, clientId: dto.clientId || undefined } as any
-    });
-    const { passwordHash: _, ...result } = user;
-    return result;
+    const role = dto.role || 'TECNICO';
+    const id = require('crypto').randomUUID();
+    const permissions = JSON.stringify(ALL_MODULES);
+    const clientId = dto.clientId || null;
+    await (this.prisma as any).$executeRaw`
+      INSERT INTO users (id, name, email, password_hash, role, permissions, client_id, is_active, created_at, updated_at)
+      VALUES (${id}, ${dto.name}, ${dto.email}, ${passwordHash}, ${role}::"UserRole", ${permissions}::jsonb, ${clientId}, true, now(), now())
+    `;
+    return { id, name: dto.name, email: dto.email, role };
   }
 
   async getProfile(userId: string) {
