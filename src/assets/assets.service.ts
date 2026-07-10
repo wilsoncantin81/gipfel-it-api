@@ -608,4 +608,59 @@ export class AssetsService {
     doc.end();
     return new Promise<Buffer>((resolve) => doc.on('end', () => resolve(Buffer.concat(chunks))));
   }
+
+  async importFromExcel(rows: any[]) {
+    if (!rows || !rows.length) return { imported: 0, errors: [] };
+    const results = { imported: 0, errors: [] as string[] };
+
+    for (const row of rows) {
+      try {
+        // Find or skip client
+        let clientId = row.clientId;
+        if (!clientId && row.cliente) {
+          const clients = await this.prisma.client.findMany({
+            where: { businessName: { contains: row.cliente, mode: 'insensitive' } },
+            take: 1,
+          });
+          clientId = clients[0]?.id;
+        }
+        if (!clientId) { results.errors.push(`Fila ${results.imported + results.errors.length + 1}: cliente "${row.cliente}" no encontrado`); continue; }
+
+        // Find asset type
+        let assetTypeId = row.assetTypeId;
+        if (!assetTypeId && row.tipo) {
+          const types = await this.prisma.assetType.findMany({
+            where: { name: { contains: row.tipo, mode: 'insensitive' } },
+            take: 1,
+          });
+          assetTypeId = types[0]?.id;
+        }
+
+        await this.prisma.asset.create({
+          data: {
+            clientId,
+            assetTypeId: assetTypeId || undefined,
+            name: row.nombre || row.name,
+            brand: row.marca || row.brand || undefined,
+            model: row.modelo || row.model || undefined,
+            serialNumber: row.serial || row.serialNumber || undefined,
+            inventoryCode: row.codigo || row.inventoryCode || undefined,
+            location: row.ubicacion || row.location || undefined,
+            status: (row.estado || row.status || 'ACTIVO').toUpperCase(),
+            notes: row.notas || row.notes || undefined,
+            ipAddress: row.ip || row.ipAddress || undefined,
+            macAddress: row.mac || row.macAddress || undefined,
+            supplier: row.proveedor || row.supplier || undefined,
+            assignedUser: row.usuario || row.assignedUser || undefined,
+            responsible: row.responsable || row.responsible || undefined,
+          } as any,
+        });
+        results.imported++;
+      } catch (e) {
+        results.errors.push(`Error en fila: ${e.message}`);
+      }
+    }
+    return results;
+  }
+
 }
