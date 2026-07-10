@@ -184,7 +184,7 @@ export class ReportsService {
     // Row 1
     const row1 = [
       ['N° REPORTE', rpt.reportNumber],
-      ['FECHA', new Date(rpt.date).toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Bogota' })],
+      ['FECHA', new Date((rpt.date||'').length===10?rpt.date+'T12:00:00':rpt.date).toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Bogota' })],
       ['TIPO DE SERVICIO', SERVICE_TYPES[rpt.serviceType] || rpt.serviceType],
     ];
     row1.forEach(([l, v], i) => drawBox(margin + i * col, y, col - 3, boxH, l, v, i % 2 === 0 ? lightGray : white));
@@ -336,7 +336,7 @@ export class ReportsService {
     <div style="padding:24px">
       <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
         <tr>
-          <td style="padding:8px;background:#f5f5f5;width:50%"><strong style="color:#0A4F8C">Fecha:</strong><br>${new Date(rpt.date).toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Bogota' })}</td>
+          <td style="padding:8px;background:#f5f5f5;width:50%"><strong style="color:#0A4F8C">Fecha:</strong><br>${new Date((rpt.date||'').length===10?rpt.date+'T12:00:00':rpt.date).toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Bogota' })}</td>
           <td style="padding:8px;background:white;width:50%"><strong style="color:#0A4F8C">Tipo de Servicio:</strong><br>${SERVICE_TYPES[rpt.serviceType] || rpt.serviceType}</td>
         </tr>
         <tr>
