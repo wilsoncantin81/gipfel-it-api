@@ -69,9 +69,9 @@ export class ReportsService {
         date: new Date(data.date),
         serviceType: data.serviceType,
         description: data.description,
-        workDone: observations || undefined,
-        recommendations: conclusion || undefined,
-        clientSignature: signatureUrl || undefined,
+        observations: observations || undefined,
+        conclusion: conclusion || undefined,
+        signatureUrl: signatureUrl || undefined,
         receivedBy: receivedBy || undefined,
         assets: assetIds?.length
           ? { create: assetIds.map((a: any) => ({ assetId: typeof a === 'string' ? a : a.id })) }
@@ -92,7 +92,7 @@ export class ReportsService {
               technicianId: data.technicianId || undefined,
               type: 'CORRECTIVO',
               description: data.description || 'Servicio técnico',
-              findings: workDetail || observations || undefined,
+              workDone: workDetail || observations || undefined,
             },
           });
         } catch {}
@@ -103,7 +103,7 @@ export class ReportsService {
   }
 
   async saveSignature(id: string, signature: string) {
-    return this.prisma.serviceReport.update({ where: { id }, data: { clientSignature: signature } });
+    return this.prisma.serviceReport.update({ where: { id }, data: { signatureUrl: signature } });
   }
 
   private async fetchImageBuffer(url: string): Promise<Buffer | null> {
@@ -184,7 +184,7 @@ export class ReportsService {
     // Row 1
     const row1 = [
       ['N° REPORTE', rpt.reportNumber],
-      ['FECHA', new Date((rpt.date||'').length===10?rpt.date+'T12:00:00':rpt.date).toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Bogota' })],
+            ['FECHA', new Date(rpt.date).toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Bogota' })],
       ['TIPO DE SERVICIO', SERVICE_TYPES[rpt.serviceType] || rpt.serviceType],
     ];
     row1.forEach(([l, v], i) => drawBox(margin + i * col, y, col - 3, boxH, l, v, i % 2 === 0 ? lightGray : white));
@@ -216,17 +216,17 @@ export class ReportsService {
     };
 
     // ── CONTENT ──────────────────────────────────────────
-    section('DESCRIPCIÓN DEL SERVICIO');
+                section('DESCRIPCIÓN DEL SERVICIO');
     textBlock(rpt.description || '–');
 
-    if (rpt.workDone) {
+    if (rpt.observations) {
       section('TRABAJO REALIZADO');
-      textBlock(rpt.workDone);
+            textBlock(rpt.observations);
     }
 
-    if (rpt.recommendations) {
+    if (rpt.conclusion) {
       section('RECOMENDACIONES');
-      textBlock(rpt.recommendations);
+      textBlock(rpt.conclusion);
     }
 
     // Assets table
@@ -246,7 +246,7 @@ export class ReportsService {
         const rh = 16;
         doc.rect(margin, y, cw, rh).fill(ri % 2 === 0 ? white : lightGray).stroke('#DDDDDD');
         tx = margin;
-        [a?.name || '–', a?.assetType?.name || '–', `${a?.brand || ''} ${a?.model || ''}`.trim() || '–', a?.serialNumber || '–'].forEach((v, i) => {
+        [a?.name || '–', a?.assetType?.name || '–', `${a?.brand || ''} ${a?.model || ''}`.trim() || '–', a?.serial || '–'].forEach((v, i) => {
           doc.fillColor(darkGray).fontSize(7.5).font('Helvetica').text(v, tx + 4, y + 4, { width: cols[i] - 8 });
           tx += cols[i];
         });
@@ -270,9 +270,9 @@ export class ReportsService {
 
     // Client
     doc.rect(margin, y, sigW, sigBoxH).stroke('#CCCCCC');
-    if (rpt.clientSignature) {
+    if (rpt.signatureUrl) {
       try {
-        const sigBuf = Buffer.from(rpt.clientSignature.replace(/^data:image\/\w+;base64,/, ''), 'base64');
+                const sigBuf = Buffer.from(rpt.signatureUrl.replace(/^data:image\/\w+;base64,/, ''), 'base64');
         doc.image(sigBuf, margin + 4, y + 4, { fit: [sigW - 8, sigBoxH - 8] });
       } catch {}
     }
@@ -319,7 +319,7 @@ export class ReportsService {
           <tr style="background:${i % 2 === 0 ? '#f9f9f9' : 'white'}">
             <td style="padding:6px;border-bottom:1px solid #eee">${ra.asset?.name || '–'}</td>
             <td style="padding:6px;border-bottom:1px solid #eee">${ra.asset?.assetType?.name || '–'}</td>
-            <td style="padding:6px;border-bottom:1px solid #eee">${ra.asset?.serialNumber || '–'}</td>
+            <td style="padding:6px;border-bottom:1px solid #eee">${ra.asset?.serial || '–'}</td>
           </tr>`).join('')}
       </table>` : '<p style="color:#888">Sin equipos registrados</p>';
 
@@ -336,7 +336,7 @@ export class ReportsService {
     <div style="padding:24px">
       <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
         <tr>
-          <td style="padding:8px;background:#f5f5f5;width:50%"><strong style="color:#0A4F8C">Fecha:</strong><br>${new Date((rpt.date||'').length===10?rpt.date+'T12:00:00':rpt.date).toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Bogota' })}</td>
+                    <td style="padding:8px;background:#f5f5f5;width:50%"><strong style="color:#0A4F8C">Fecha:</strong><br>${new Date(rpt.date).toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Bogota' })}</td>
           <td style="padding:8px;background:white;width:50%"><strong style="color:#0A4F8C">Tipo de Servicio:</strong><br>${SERVICE_TYPES[rpt.serviceType] || rpt.serviceType}</td>
         </tr>
         <tr>
@@ -351,13 +351,13 @@ export class ReportsService {
         <strong style="color:#0A4F8C">Descripción del Servicio:</strong>
         <p style="margin:8px 0 0;color:#333">${rpt.description}</p>
       </div>
-      ${rpt.workDone ? `<div style="background:#f5f5f5;border-left:4px solid #00AEEF;padding:12px;margin-bottom:16px;border-radius:0 4px 4px 0">
+      ${rpt.observations ? `<div style="background:#f5f5f5;border-left:4px solid #00AEEF;padding:12px;margin-bottom:16px;border-radius:0 4px 4px 0">
         <strong style="color:#0A4F8C">Trabajo Realizado:</strong>
-        <p style="margin:8px 0 0;color:#333">${rpt.workDone}</p>
+                <p style="margin:8px 0 0;color:#333">${rpt.observations}</p>
       </div>` : ''}
-      ${rpt.recommendations ? `<div style="background:#fff3cd;border-left:4px solid #ffc107;padding:12px;margin-bottom:16px;border-radius:0 4px 4px 0">
+              ${rpt.conclusion ? `<div style="background:#fff3cd;border-left:4px solid #ffc107;padding:12px;margin-bottom:16px;border-radius:0 4px 4px 0">
         <strong style="color:#856404">Recomendaciones:</strong>
-        <p style="margin:8px 0 0;color:#333">${rpt.recommendations}</p>
+                <p style="margin:8px 0 0;color:#333">${rpt.conclusion}</p>
       </div>` : ''}
       <strong style="color:#0A4F8C">Equipos Intervenidos:</strong>
       ${assetsHtml}
@@ -387,7 +387,52 @@ export class ReportsService {
       throw new Error(`Error enviando correo: ${err}`);
     }
 
-    await this.prisma.serviceReport.update({ where: { id }, data: { emailSent: true } });
+          await this.prisma.serviceReport.update({ where: { id }, data: { sentAt: new Date() } });
     return { sent: true, to: recipient };
+  }
+
+  buildHtml(rpt: any): string {
+    const client = (rpt as any).client;
+    const technician = (rpt as any).technician;
+    const assets = (rpt as any).assets || [];
+    const assetsHtml = assets.length > 0
+    ? `<table style="width:100%;border-collapse:collapse;margin-top:8px"><tr style="background:#00AEEF;color:white"><th style="padding:6px;text-align:left">Equipo</th><th style="padding:6px;text-align:left">Tipo</th><th style="padding:6px;text-align:left">Serial</th></tr>${assets.map((ra: any, i: number) => `<tr style="background:${i % 2 === 0 ? '#f9f9f9' : 'white'}"><td style="padding:6px;border-bottom:1px solid #eee">${ra.asset?.name || '-'}</td><td style="padding:6px;border-bottom:1px solid #eee">${ra.asset?.assetType?.name || '-'}</td><td style="padding:6px;border-bottom:1px solid #eee">${ra.asset?.serial || '-'}</td></tr>`).join('')}</table>`
+      : '<p style="color:#888">Sin equipos registrados</p>';
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
+    <body style="font-family:Arial,sans-serif;margin:0;padding:0;background:#f4f4f4">
+    <div style="max-width:600px;margin:20px auto;background:white;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
+    <div style="background:#0A4F8C;padding:24px;text-align:center;border-bottom:3px solid #00AEEF">
+    <h1 style="color:white;margin:0;font-size:18px;font-weight:bold">Reporte de Servicio Técnico</h1>
+    </div>
+    <div style="background:#00AEEF;padding:10px 24px;text-align:center">
+    <span style="color:white;font-weight:bold;font-size:16px">${rpt.reportNumber}</span>
+    </div>
+    <div style="padding:24px">
+    <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
+    <tr>
+    <td style="padding:8px;background:#f5f5f5;width:50%"><strong style="color:#0A4F8C">Fecha:</strong><br>${new Date(rpt.date).toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Bogota' })}</td>
+    <td style="padding:8px;background:white;width:50%"><strong style="color:#0A4F8C">Tipo de Servicio:</strong><br>${SERVICE_TYPES[rpt.serviceType] || rpt.serviceType}</td>
+    </tr>
+    <tr>
+    <td style="padding:8px;background:white"><strong style="color:#0A4F8C">Cliente:</strong><br>${client?.businessName || '-'}</td>
+    <td style="padding:8px;background:#f5f5f5"><strong style="color:#0A4F8C">Técnico:</strong><br>${technician?.name || '-'}</td>
+    </tr>
+    </table>
+    <div style="background:#f5f5f5;border-left:4px solid #0A4F8C;padding:12px;margin-bottom:16px;border-radius:0 4px 4px 0">
+    <strong style="color:#0A4F8C">Descripción del Servicio:</strong>
+    <p style="margin:8px 0 0;color:#333">${rpt.description || '-'}</p>
+    </div>
+    ${rpt.observations ? `<div style="background:#f5f5f5;border-left:4px solid #00AEEF;padding:12px;margin-bottom:16px;border-radius:0 4px 4px 0"><strong style="color:#0A4F8C">Trabajo Realizado:</strong><p style="margin:8px 0 0;color:#333">${rpt.observations}</p></div>` : ''}
+    ${rpt.conclusion ? `<div style="background:#fff3cd;border-left:4px solid #ffc107;padding:12px;margin-bottom:16px;border-radius:0 4px 4px 0"><strong style="color:#856404">Recomendaciones:</strong><p style="margin:8px 0 0;color:#333">${rpt.conclusion}</p></div>` : ''}
+    <strong style="color:#0A4F8C">Equipos Intervenidos:</strong>
+    ${assetsHtml}
+    </div>
+    <div style="background:#0A4F8C;padding:16px;text-align:center">
+    <p style="color:#00AEEF;margin:0;font-size:12px">${COMPANY.name}</p>
+    <p style="color:white;margin:4px 0;font-size:11px">${COMPANY.address} | ${COMPANY.phone} | ${COMPANY.mobile}</p>
+    <p style="color:white;margin:0;font-size:11px">${COMPANY.email} | ${COMPANY.web}</p>
+    </div>
+    </div>
+    </body></html>`;
   }
 }
