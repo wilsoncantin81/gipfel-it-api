@@ -84,6 +84,15 @@ export class TicketsService {
     return this.prisma.ticket.update({ where: { id }, data: dto });
   }
 
+
+  private parseDate(d: string): Date {
+    if (!d) return new Date();
+    // If already has time component, use as is
+    if (d.includes('T')) return new Date(d);
+    // Add noon time to avoid UTC offset issues
+    return new Date(d + 'T12:00:00.000Z'.replace('Z', '-05:00'));
+  }
+
   private async logStatusChange(ticketId: string, status: string, userId?: string) {
     try {
       await (this.prisma as any).$executeRaw`
@@ -199,7 +208,7 @@ export class TicketsService {
     const price = Number(dto.unitPrice);
     const total = qty * price;
     const expense = await this.prisma.ticketExpense.create({
-      data: { ticketId, date: new Date(dto.date + 'T12:00:00'), description: dto.description, supplier: dto.supplier, supplierInvoice: dto.supplierInvoice, quantity: qty, unitPrice: price, total },
+      data: { ticketId, date: this.parseDate(dto.date), description: dto.description, supplier: dto.supplier, supplierInvoice: dto.supplierInvoice, quantity: qty, unitPrice: price, total },
     });
     const allExpenses = await this.prisma.ticketExpense.findMany({ where: { ticketId } });
     const totalCost = allExpenses.reduce((s, e) => s + e.total, 0);
