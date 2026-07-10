@@ -34,8 +34,8 @@ async function bootstrap() {
     if (m === 'GET' && p === '/dashboard/financials/summary') {
       try {
         const where: any = { status: 'CERRADO' };
-        if (req.query.from) where.resolvedAt = { gte: new Date(req.query.from as string) };
-        if (req.query.to) where.resolvedAt = { ...where.resolvedAt, lte: new Date(req.query.to as string) };
+                if (req.query.from) where.resolvedAt = { gte: new Date(String(req.query.from)) };
+                if (req.query.to) where.resolvedAt = { ...where.resolvedAt, lte: new Date(String(req.query.to)) };
         if (req.query.technicianId) where.assignedToId = req.query.technicianId;
         const tickets = await prisma.ticket.findMany({ where, include: { client: true, assignedTo: { select: { id: true, name: true } }, commission: true }, orderBy: { resolvedAt: 'desc' } });
         return res.json({ tickets, totalSales: tickets.reduce((s,t:any)=>s+(t.salePrice||0),0), totalCosts: tickets.reduce((s,t:any)=>s+(t.totalCost||0),0), totalUtility: tickets.reduce((s,t:any)=>s+(t.utility||0),0), totalCommissions: tickets.reduce((s,t:any)=>s+((t.commission as any)?.amount||0),0), count: tickets.length });
