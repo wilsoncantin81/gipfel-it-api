@@ -13,6 +13,7 @@ model User {
   passwordHash String   @map("password_hash")
   role         UserRole @default(TECNICO)
   isActive     Boolean  @default(true) @map("is_active")
+  permissions   Json?    @default("[]")
   clientId         String?  @map("client_id")
   client           Client?  @relation(fields: [clientId], references: [id])
   createdAt    DateTime @default(now()) @map("created_at")
