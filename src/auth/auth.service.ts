@@ -41,17 +41,17 @@ async register(dto: any) {
   const passwordHash = await bcrypt.hash(dto.password, 12);
   const permissions = dto.permissions || (role === 'CLIENTE' ? CLIENT_MODULES : ALL_MODULES);
   const user = await this.prisma.user.create({
-    data: { name: dto.name, email: dto.email, passwordHash, role, permissions, clientId: role === 'CLIENTE' ? dto.clientId : null },
+    data: { name: dto.name, email: dto.email, passwordHash, role, permissions, clientId: role === 'CLIENTE' ? dto.clientId : null, phone: dto.phone || undefined, whatsappApiKey: dto.whatsappApiKey || undefined },
   });
   return { id: user.id, name: user.name, email: user.email, role: user.role, clientId: user.clientId };
 }
 
 async getProfile(userId: string) {
-  return this.prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true, role: true, isActive: true, permissions: true, clientId: true } });
+  return this.prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true, role: true, isActive: true, permissions: true, clientId: true, phone: true, whatsappApiKey: true } });
 }
 
 async getUsers() {
-  return this.prisma.user.findMany({ select: { id: true, name: true, email: true, role: true, isActive: true, permissions: true, clientId: true }, orderBy: { name: 'asc' } });
+  return this.prisma.user.findMany({ select: { id: true, name: true, email: true, role: true, isActive: true, permissions: true, clientId: true, phone: true, whatsappApiKey: true }, orderBy: { name: 'asc' } });
 }
 
 async getTechnicians() {
@@ -60,6 +60,13 @@ async getTechnicians() {
 
 async updatePermissions(id: string, permissions: string[]) {
   return this.prisma.user.update({ where: { id }, data: { permissions: permissions as any } });
+}
+
+async updateContact(id: string, dto: any) {
+  const data: any = {};
+  if (dto.phone !== undefined) data.phone = dto.phone || null;
+  if (dto.whatsappApiKey !== undefined) data.whatsappApiKey = dto.whatsappApiKey || null;
+  return this.prisma.user.update({ where: { id }, data });
 }
 
 async resetPassword(id: string, password: string) {
