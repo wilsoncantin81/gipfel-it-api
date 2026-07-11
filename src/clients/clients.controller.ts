@@ -1,36 +1,56 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, Query, Request, UseGuards, ForbiddenException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { ClientsService } from './clients.service';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
 
 @ApiTags('Clients')
   @ApiBearerAuth()
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Controller('clients')
   export class ClientsController {
-    constructor(private readonly service: ClientsService) {}
+  constructor(private readonly service: ClientsService) {}
 
-  @Get('technicians')
-    getTechnicians() { return this.service.getTechnicians(); }
+@Get('technicians')
+  getTechnicians() { return this.service.getTechnicians(); }
 
-  @Get()
-    findAll(@Query() q: any) { return this.service.findAll(q); }
+@Get()
+  async findAll(@Query() q: any, @Request() req: any) {
+    if (req.user?.role === 'CLIENTE') {
+      const c = await this.service.findOne(req.user.clientId);
+      return c ? [c] : [];
+    }
+    return this.service.findAll(q);
+  }
 
-  @Get(':id/stats')
-    getStats(@Param('id') id: string) { return this.service.getStats(id); }
+@Get(':id/stats')
+  async getStats(@Param('id') id: string, @Request() req: any) {
+    this.assertOwnClient(id, req);
+    return this.service.getStats(id);
+  }
 
-  @Get(':id')
-    findOne(@Param('id') id: string) { return this.service.findOne(id); }
+@Get(':id')
+  async findOne(@Param('id') id: string, @Request() req: any) {
+    this.assertOwnClient(id, req);
+    return this.service.findOne(id);
+  }
 
-  @Post()
-    create(@Body() dto: any) { return this.service.create(dto); }
+@Post() @Roles('ADMIN', 'TECNICO')
+  create(@Body() dto: any) { return this.service.create(dto); }
 
-  @Put(':id/logo')
-    updateLogo(@Param('id') id: string, @Body() body: any) { return this.service.updateLogo(id, body.logoUrl); }
+@Put(':id/logo') @Roles('ADMIN', 'TECNICO')
+  updateLogo(@Param('id') id: string, @Body() body: any) { return this.service.updateLogo(id, body.logoUrl); }
 
-  @Put(':id')
-    update(@Param('id') id: string, @Body() dto: any) { return this.service.update(id, dto); }
+@Put(':id') @Roles('ADMIN', 'TECNICO')
+  update(@Param('id') id: string, @Body() dto: any) { return this.service.update(id, dto); }
 
-  @Delete(':id')
-    remove(@Param('id') id: string) { return this.service.remove(id); }
+@Delete(':id') @Roles('ADMIN', 'TECNICO')
+  remove(@Param('id') id: string) { return this.service.remove(id); }
+
+private assertOwnClient(id: string, req: any) {
+  if (req.user?.role === 'CLIENTE' && id !== req.user.clientId) {
+    throw new ForbiddenException('No autorizado');
+  }
+}
 }
