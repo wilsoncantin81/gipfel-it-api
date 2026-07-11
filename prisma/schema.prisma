@@ -14,6 +14,8 @@ model User {
   role         UserRole @default(TECNICO)
   isActive     Boolean  @default(true) @map("is_active")
   permissions   Json?    @default("[]")
+phone String?
+whatsappApiKey String? @map("whatsapp_api_key")
   clientId         String?  @map("client_id")
   client           Client?  @relation(fields: [clientId], references: [id])
   createdAt    DateTime @default(now()) @map("created_at")
