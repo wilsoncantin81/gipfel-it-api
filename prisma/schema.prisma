@@ -210,6 +210,7 @@ model Ticket {
   priority       Priority     @default(MEDIA)
   status         TicketStatus @default(NUEVO)
   invoiceNumber  String?      @map("invoice_number")
+closureType   String?     @map("closure_type")
   salePrice      Float?       @map("sale_price")
   totalCost      Float?       @map("total_cost")
   utility        Float?
