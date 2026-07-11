@@ -12,7 +12,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.enableCors({
-['https://grupogipfel.com', 'http://localhost:3000', 'http://localhost:4200'],    methods: ['GET','POST','PUT','DELETE','OPTIONS','PATCH'],
+'*'    methods: ['GET','POST','PUT','DELETE','OPTIONS','PATCH'],
     allowedHeaders: ['Content-Type','Authorization'],
     credentials: true,
   });
