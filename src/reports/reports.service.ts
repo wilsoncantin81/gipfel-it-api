@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+himport { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 
 const COMPANY = {
