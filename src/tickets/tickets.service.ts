@@ -61,6 +61,12 @@ export class TicketsService {
     const count = await this.prisma.ticket.count();
     const ticketNumber = `TKT-${String(count + 1).padStart(5, '0')}`;
     const { tasks, ...rest } = dto;
+    if (rest.assetId) {
+      const asset = await this.prisma.asset.findUnique({ where: { id: rest.assetId } });
+      if (!asset || asset.clientId !== rest.clientId) {
+        throw new BadRequestException('El activo no pertenece a este cliente');
+      }
+    }
     const data: any = {
       ticketNumber,
       clientId: rest.clientId,
