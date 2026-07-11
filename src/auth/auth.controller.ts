@@ -38,6 +38,12 @@ import { RolesGuard } from './roles.guard';
   @ApiBearerAuth()
   updatePermissions(@Param('id') id: string, @Body() body: any) { return this.auth.updatePermissions(id, body.permissions); }
 
+@Put('users/:id/contact')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  updateContact(@Param('id') id: string, @Body() body: any) { return this.auth.updateContact(id, body); }
+
 @Put('users/:id/password')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('ADMIN')
