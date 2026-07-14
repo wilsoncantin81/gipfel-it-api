@@ -1,25 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 
-const COMPANY = {
-  name: 'Grupo Gipfel',
-  address: 'Calle 96 #68F-24, Bogotá',
-  phone: '601 811 9749',
-  mobile: '311 503 5734',
-  email: 'info@grupogipfel.com',
-  web: 'www.grupogipfel.com',
-  logoUrl: 'https://www.grupogipfel.com/imagenes/logo-gipfel.png',
-  logoDarkUrl: 'https://www.grupogipfel.com/imagenes/logo-gipfel2.png',
-};
-
-const LOGO_B64 = Buffer.from('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', 'base64');
-
-function parseDate(d: string | undefined): Date | undefined {
-  if (!d) return undefined;
-  if (d.includes('T')) return new Date(d);
-  return new Date(d + 'T12:00:00-05:00');
-}
-
 @Injectable()
 export class AssetsService {
   constructor(private prisma: PrismaService) {}
@@ -36,13 +17,13 @@ export class AssetsService {
       where.OR = [
         { code: { contains: q.search, mode: 'insensitive' } },
         { name: { contains: q.search, mode: 'insensitive' } },
-        { description: { contains: q.search, mode: 'insensitive' } },
+        { brand: { contains: q.search, mode: 'insensitive' } },
       ];
 
     const [data, total] = await Promise.all([
       this.prisma.asset.findMany({
         where,
-        include: { client: true, type: true },
+        include: { client: true, assetType: true },
         orderBy: { createdAt: 'desc' },
         skip: q.skip || 0,
         take: q.take || 20,
@@ -56,7 +37,7 @@ export class AssetsService {
   async findOne(id: string) {
     return this.prisma.asset.findUnique({
       where: { id },
-      include: { client: true, type: true, maintenanceRecords: true },
+      include: { client: true, assetType: true, maintenanceRecords: true },
     });
   }
 
@@ -65,24 +46,18 @@ export class AssetsService {
       data: {
         code: createAssetDto.code,
         name: createAssetDto.name,
-        description: createAssetDto.description,
         clientId: createAssetDto.clientId,
         assetTypeId: createAssetDto.assetTypeId,
         status: createAssetDto.status || 'ACTIVO',
-        serialNumber: createAssetDto.serialNumber,
+        brand: createAssetDto.brand,
+        model: createAssetDto.model,
+        serial: createAssetDto.serial,
         location: createAssetDto.location,
-        purchaseDate: createAssetDto.purchaseDate
-          ? parseDate(createAssetDto.purchaseDate)
-          : null,
-        purchasePrice: createAssetDto.purchasePrice,
-        warrantyUntil: createAssetDto.warrantyUntil
-          ? parseDate(createAssetDto.warrantyUntil)
-          : null,
-        nextMaintenance: createAssetDto.nextMaintenance
-          ? parseDate(createAssetDto.nextMaintenance)
-          : null,
+        purchaseDate: createAssetDto.purchaseDate ? new Date(createAssetDto.purchaseDate) : null,
+        warrantyUntil: createAssetDto.warrantyUntil ? new Date(createAssetDto.warrantyUntil) : null,
+        nextMaintenance: createAssetDto.nextMaintenance ? new Date(createAssetDto.nextMaintenance) : null,
       },
-      include: { client: true, type: true },
+      include: { client: true, assetType: true },
     });
     return asset;
   }
@@ -93,28 +68,217 @@ export class AssetsService {
       data: {
         code: updateAssetDto.code,
         name: updateAssetDto.name,
-        description: updateAssetDto.description,
         assetTypeId: updateAssetDto.assetTypeId,
         status: updateAssetDto.status,
-        serialNumber: updateAssetDto.serialNumber,
+        brand: updateAssetDto.brand,
+        model: updateAssetDto.model,
+        serial: updateAssetDto.serial,
         location: updateAssetDto.location,
-        purchaseDate: updateAssetDto.purchaseDate
-          ? parseDate(updateAssetDto.purchaseDate)
-          : null,
-        purchasePrice: updateAssetDto.purchasePrice,
-        warrantyUntil: updateAssetDto.warrantyUntil
-          ? parseDate(updateAssetDto.warrantyUntil)
-          : null,
-        nextMaintenance: updateAssetDto.nextMaintenance
-          ? parseDate(updateAssetDto.nextMaintenance)
-          : null,
+        purchaseDate: updateAssetDto.purchaseDate ? new Date(updateAssetDto.purchaseDate) : null,
+        warrantyUntil: updateAssetDto.warrantyUntil ? new Date(updateAssetDto.warrantyUntil) : null,
+        nextMaintenance: updateAssetDto.nextMaintenance ? new Date(updateAssetDto.nextMaintenance) : null,
       },
-      include: { client: true, type: true },
+      include: { client: true, assetType: true },
     });
   }
 
   async remove(id: string) {
     return this.prisma.asset.delete({ where: { id } });
+  }
+
+  async getAssetPDF(id: string) {
+    const asset = await this.prisma.asset.findUnique({
+      where: { id },
+      include: { client: true, assetType: true },
+    });
+
+    if (!asset) throw new Error('Asset not found');
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Hoja de Vida - ${asset.code}</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 15px; }
+    .section { margin: 20px 0; }
+    .section-title { background: #4CAF50; color: white; padding: 10px; font-weight: bold; }
+    .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ddd; }
+    .label { font-weight: bold; width: 40%; }
+    .value { width: 60%; }
+    .qr { text-align: center; margin: 20px 0; }
+    .qr img { width: 150px; height: 150px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>${asset.name}</h1>
+    <p>Código: ${asset.code}</p>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Información General</div>
+    <div class="row">
+      <div class="label">Código:</div>
+      <div class="value">${asset.code || 'N/A'}</div>
+    </div>
+    <div class="row">
+      <div class="label">Nombre:</div>
+      <div class="value">${asset.name}</div>
+    </div>
+    <div class="row">
+      <div class="label">Cliente:</div>
+      <div class="value">${asset.client?.businessName || 'N/A'}</div>
+    </div>
+    <div class="row">
+      <div class="label">Tipo:</div>
+      <div class="value">${asset.assetType?.name || 'N/A'}</div>
+    </div>
+    <div class="row">
+      <div class="label">Estado:</div>
+      <div class="value">${asset.status}</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Especificaciones</div>
+    <div class="row">
+      <div class="label">Marca:</div>
+      <div class="value">${asset.brand || 'N/A'}</div>
+    </div>
+    <div class="row">
+      <div class="label">Modelo:</div>
+      <div class="value">${asset.model || 'N/A'}</div>
+    </div>
+    <div class="row">
+      <div class="label">Serial:</div>
+      <div class="value">${asset.serial || 'N/A'}</div>
+    </div>
+    <div class="row">
+      <div class="label">Ubicación:</div>
+      <div class="value">${asset.location || 'N/A'}</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Garantía y Mantenimiento</div>
+    <div class="row">
+      <div class="label">Fecha de Compra:</div>
+      <div class="value">${asset.purchaseDate ? new Date(asset.purchaseDate).toLocaleDateString('es-CO') : 'N/A'}</div>
+    </div>
+    <div class="row">
+      <div class="label">Garantía Hasta:</div>
+      <div class="value">${asset.warrantyUntil ? new Date(asset.warrantyUntil).toLocaleDateString('es-CO') : 'N/A'}</div>
+    </div>
+    <div class="row">
+      <div class="label">Próximo Mantenimiento:</div>
+      <div class="value">${asset.nextMaintenance ? new Date(asset.nextMaintenance).toLocaleDateString('es-CO') : 'N/A'}</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Acceso Remoto</div>
+    <div class="row">
+      <div class="label">IP:</div>
+      <div class="value">${asset.ipAddress || 'N/A'}</div>
+    </div>
+    <div class="row">
+      <div class="label">MAC:</div>
+      <div class="value">${asset.macAddress || 'N/A'}</div>
+    </div>
+    <div class="row">
+      <div class="label">Acceso Remoto:</div>
+      <div class="value">${asset.remoteAccess || 'No disponible'}</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Notas</div>
+    <p>${asset.notes || 'Sin notas'}</p>
+  </div>
+
+  <div class="qr">
+    ${asset.qrCodeUrl ? `<img src="${asset.qrCodeUrl}" alt="QR Code">` : '<p>QR no disponible</p>'}
+  </div>
+</body>
+</html>
+    `;
+
+    return html;
+  }
+
+  async getQR(id: string) {
+    const asset = await this.prisma.asset.findUnique({
+      where: { id },
+      select: { code: true, qrCodeUrl: true },
+    });
+
+    if (!asset) throw new Error('Asset not found');
+
+    return {
+      code: asset.code,
+      qrCodeUrl: asset.qrCodeUrl,
+      message: 'QR code for asset',
+    };
+  }
+
+  async getPassword(id: string) {
+    const asset = await this.prisma.asset.findUnique({
+      where: { id },
+      select: { code: true, passwordEnc: true },
+    });
+
+    if (!asset) throw new Error('Asset not found');
+
+    return {
+      code: asset.code,
+      hasPassword: !!asset.passwordEnc,
+      message: 'Password info retrieved - decrypt on frontend',
+    };
+  }
+
+  async importFromExcel(rows: any[]) {
+    if (!rows || !Array.isArray(rows)) {
+      throw new Error('Invalid data format');
+    }
+
+    const results = {
+      created: 0,
+      failed: 0,
+      errors: [] as any[],
+    };
+
+    for (const row of rows) {
+      try {
+        await this.prisma.asset.create({
+          data: {
+            code: row.code || `AUTO-${Date.now()}`,
+            name: row.name,
+            clientId: row.clientId,
+            assetTypeId: row.assetTypeId,
+            brand: row.brand,
+            model: row.model,
+            serial: row.serial,
+            location: row.location,
+            status: row.status || 'ACTIVO',
+            purchaseDate: row.purchaseDate ? new Date(row.purchaseDate) : null,
+            warrantyUntil: row.warrantyUntil ? new Date(row.warrantyUntil) : null,
+            nextMaintenance: row.nextMaintenance ? new Date(row.nextMaintenance) : null,
+          },
+        });
+        results.created++;
+      } catch (error: any) {
+        results.failed++;
+        results.errors.push({
+          row: row.code || 'unknown',
+          error: error.message,
+        });
+      }
+    }
+
+    return results;
   }
 
   async exportPDF(q: any) {
@@ -124,7 +288,7 @@ export class AssetsService {
         status: q.status || undefined,
         assetTypeId: q.assetTypeId || undefined,
       },
-      include: { client: true, type: true },
+      include: { client: true, assetType: true },
     });
 
     const html = `
@@ -158,10 +322,11 @@ export class AssetsService {
       <tr>
         <th>Código</th>
         <th>Nombre</th>
+        <th>Marca</th>
+        <th>Modelo</th>
         <th>Tipo</th>
         <th>Cliente</th>
         <th>Estado</th>
-        <th>Ubicación</th>
       </tr>
     </thead>
     <tbody>
@@ -169,10 +334,11 @@ export class AssetsService {
         <tr>
           <td>${a.code || ''}</td>
           <td>${a.name || ''}</td>
-          <td>${a.type?.name || ''}</td>
+          <td>${a.brand || ''}</td>
+          <td>${a.model || ''}</td>
+          <td>${a.assetType?.name || ''}</td>
           <td>${a.client?.businessName || ''}</td>
           <td>${a.status || ''}</td>
-          <td>${a.location || ''}</td>
         </tr>
       `).join('')}
     </tbody>
@@ -195,19 +361,21 @@ export class AssetsService {
         status: q.status || undefined,
         assetTypeId: q.assetTypeId || undefined,
       },
-      include: { client: true, type: true },
+      include: { client: true, assetType: true },
     });
 
     const csv = [
-      ['Código', 'Nombre', 'Tipo', 'Cliente', 'Estado', 'Ubicación', 'Número de Serie'],
+      ['Código', 'Nombre', 'Marca', 'Modelo', 'Serial', 'Tipo', 'Cliente', 'Estado', 'Ubicación'],
       ...assets.map(a => [
         a.code || '',
         a.name || '',
-        a.type?.name || '',
+        a.brand || '',
+        a.model || '',
+        a.serial || '',
+        a.assetType?.name || '',
         a.client?.businessName || '',
         a.status || '',
         a.location || '',
-        a.serialNumber || '',
       ]),
     ]
       .map(row => row.map(cell => `"${cell}"`).join(','))
