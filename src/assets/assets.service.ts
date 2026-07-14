@@ -86,6 +86,15 @@ export class AssetsService {
     return this.prisma.asset.delete({ where: { id } });
   }
 
+  private escapeCsv(value: any): string {
+    if (value === null || value === undefined) return '';
+    const str = String(value);
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  }
+
   async getAssetPDF(id: string) {
     const asset = await this.prisma.asset.findUnique({
       where: { id },
@@ -476,24 +485,25 @@ export class AssetsService {
       include: { client: true, assetType: true },
     });
 
+    const headers = ['Código', 'Nombre', 'Marca', 'Modelo', 'Serial', 'Tipo', 'Cliente', 'Estado', 'Ubicación', 'Fecha Compra', 'Garantía'];
+    const rows = assets.map(a => [
+      a.code || '',
+      a.name || '',
+      a.brand || '',
+      a.model || '',
+      a.serial || '',
+      a.assetType?.name || '',
+      a.client?.businessName || '',
+      a.status || '',
+      a.location || '',
+      a.purchaseDate ? new Date(a.purchaseDate).toLocaleDateString('es-CO') : '',
+      a.warrantyUntil ? new Date(a.warrantyUntil).toLocaleDateString('es-CO') : '',
+    ]);
+
     const csv = [
-      ['Código', 'Nombre', 'Marca', 'Modelo', 'Serial', 'Tipo', 'Cliente', 'Estado', 'Ubicación', 'Fecha Compra', 'Garantía'],
-      ...assets.map(a => [
-        a.code || '',
-        a.name || '',
-        a.brand || '',
-        a.model || '',
-        a.serial || '',
-        a.assetType?.name || '',
-        a.client?.businessName || '',
-        a.status || '',
-        a.location || '',
-        a.purchaseDate ? new Date(a.purchaseDate).toLocaleDateString('es-CO') : '',
-        a.warrantyUntil ? new Date(a.warrantyUntil).toLocaleDateString('es-CO') : '',
-      ]),
-    ]
-      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-      .join('\n');
+      headers.map(h => this.escapeCsv(h)).join(','),
+      ...rows.map(row => row.map(cell => this.escapeCsv(cell)).join(',')),
+    ].join('\n');
 
     return csv;
   }
