@@ -14,19 +14,30 @@ export class AssetsController {
   @Get() findAll(@Query() q: any) { return this.service.findAll(q); }
 
   @Get('export/excel')
-  @Header('Content-Type', 'text/csv; charset=utf-8')
-  @Header('Content-Disposition', 'attachment; filename=activos.csv')
-  async exportExcel(@Query() q: any, @Res() res: Response) { res.send(await this.service.exportExcel(q)); }
+  async exportExcel(@Query() q: any, @Res() res: Response) {
+    const csv = await this.service.exportExcel(q);
+    const timestamp = new Date().toISOString().split('T')[0];
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename=activos_${timestamp}.csv`);
+    res.send('﻿' + csv); // BOM para Excel
+  }
 
   @Get('export/pdf')
-  @Header('Content-Type', 'text/html; charset=utf-8')
-  @Header('Content-Disposition', 'inline; filename=activos.html')
-  async exportPDF(@Query() q: any, @Res() res: Response) { res.send(await this.service.exportPDF(q)); }
+  async exportPDF(@Query() q: any, @Res() res: Response) {
+    const html = await this.service.exportPDF(q);
+    const timestamp = new Date().toISOString().split('T')[0];
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename=reporte_activos_${timestamp}.html`);
+    res.send(html);
+  }
 
   @Get(':id/pdf')
-  @Header('Content-Type', 'text/html; charset=utf-8')
-  @Header('Content-Disposition', 'inline; filename=hoja-vida.html')
-  async getAssetPDF(@Param('id') id: string, @Res() res: Response) { res.send(await this.service.getAssetPDF(id)); }
+  async getAssetPDF(@Param('id') id: string, @Res() res: Response) {
+    const html = await this.service.getAssetPDF(id);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename=hoja_vida_${id}.html`);
+    res.send(html);
+  }
 
   @Get(':id/qr') getQR(@Param('id') id: string) { return this.service.getQR(id); }
   @Get(':id/password') getPassword(@Param('id') id: string) { return this.service.getPassword(id); }
