@@ -17,8 +17,8 @@ import { AssetTypesModule } from './asset-types/asset-types.module';
           ClientsModule,
           AssetsModule,
           TicketsModule,
-          DashboardModul
-            AssetTypesModule,e,
+          DashboardModule
+            AssetTypesModule,
           ReportsModule,
         ],
 })
