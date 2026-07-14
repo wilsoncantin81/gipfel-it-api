@@ -19,6 +19,12 @@ import { RolesGuard } from '../auth/roles.guard';
     return this.service.findAll(q);
   }
 
+    @Get('export/pdf')
+    @Header('Content-Type', 'application/pdf')
+    @Header('Content-Disposition', 'attachment; filename=activos.pdf')
+    async exportPdfByClient(@Query() q: any, @Res() res: Response) { res.send(await this.service.exportPDF(q)); }
+
+  
 @Get('export')
   @Roles('ADMIN', 'TECNICO')
   @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
