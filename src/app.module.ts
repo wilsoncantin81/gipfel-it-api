@@ -7,6 +7,7 @@ import { AssetsModule } from './assets/assets.module';
 import { TicketsModule } from './tickets/tickets.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { ReportsModule } from './reports/reports.module';
+import { AssetTypesModule } from './asset-types/asset-types.module';
 
 @Module({
     imports: [
@@ -16,7 +17,8 @@ import { ReportsModule } from './reports/reports.module';
           ClientsModule,
           AssetsModule,
           TicketsModule,
-          DashboardModule,
+          DashboardModul
+            AssetTypesModule,e,
           ReportsModule,
         ],
 })
