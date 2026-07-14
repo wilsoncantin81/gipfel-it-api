@@ -101,106 +101,169 @@ export class AssetsService {
   <meta charset="utf-8">
   <title>Hoja de Vida - ${asset.code}</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 15px; }
-    .section { margin: 20px 0; }
-    .section-title { background: #4CAF50; color: white; padding: 10px; font-weight: bold; }
-    .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ddd; }
-    .label { font-weight: bold; width: 40%; }
-    .value { width: 60%; }
-    .qr { text-align: center; margin: 20px 0; }
-    .qr img { width: 150px; height: 150px; }
+    * { margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f5f5; padding: 20px; }
+    .container { background: white; padding: 40px; max-width: 900px; margin: 0 auto; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 4px solid #1a7c40;
+      padding-bottom: 20px;
+      margin-bottom: 30px;
+    }
+    .header-left h1 { color: #1a7c40; font-size: 24px; }
+    .header-left p { color: #666; font-size: 14px; margin-top: 5px; }
+    .logo { text-align: right; }
+    .logo img { height: 60px; }
+    .section { margin-bottom: 25px; }
+    .section-title {
+      background: linear-gradient(135deg, #1a7c40 0%, #2a9d50 100%);
+      color: white;
+      padding: 12px 15px;
+      font-weight: bold;
+      font-size: 14px;
+      margin-bottom: 15px;
+      border-radius: 4px;
+    }
+    .row {
+      display: flex;
+      padding: 10px 0;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    .row:last-child { border-bottom: none; }
+    .label {
+      font-weight: 600;
+      width: 30%;
+      color: #1a7c40;
+      font-size: 13px;
+    }
+    .value {
+      width: 70%;
+      color: #333;
+      font-size: 13px;
+    }
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    .status-ACTIVO { background: #d4edda; color: #155724; }
+    .status-EN_MANTENIMIENTO { background: #fff3cd; color: #856404; }
+    .status-DADO_DE_BAJA { background: #f8d7da; color: #721c24; }
+    .footer {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 2px solid #1a7c40;
+      text-align: center;
+      color: #666;
+      font-size: 11px;
+    }
+    .company-info { margin-top: 10px; font-weight: bold; color: #1a7c40; }
   </style>
 </head>
 <body>
-  <div class="header">
-    <h1>${asset.name}</h1>
-    <p>Código: ${asset.code}</p>
-  </div>
+  <div class="container">
+    <div class="header">
+      <div class="header-left">
+        <h1>Hoja de Vida de Activo</h1>
+        <p>Código: <strong>${asset.code || 'N/A'}</strong></p>
+      </div>
+      <div class="logo">
+        <img src="https://www.grupogipfel.com/imagenes/logo-gipfel.png" alt="Grupo Gipfel">
+      </div>
+    </div>
 
-  <div class="section">
-    <div class="section-title">Información General</div>
-    <div class="row">
-      <div class="label">Código:</div>
-      <div class="value">${asset.code || 'N/A'}</div>
+    <div class="section">
+      <div class="section-title">📋 INFORMACIÓN GENERAL</div>
+      <div class="row">
+        <div class="label">Código:</div>
+        <div class="value">${asset.code || 'N/A'}</div>
+      </div>
+      <div class="row">
+        <div class="label">Nombre:</div>
+        <div class="value"><strong>${asset.name}</strong></div>
+      </div>
+      <div class="row">
+        <div class="label">Cliente:</div>
+        <div class="value">${asset.client?.businessName || 'N/A'}</div>
+      </div>
+      <div class="row">
+        <div class="label">Tipo de Activo:</div>
+        <div class="value">${asset.assetType?.name || 'N/A'}</div>
+      </div>
+      <div class="row">
+        <div class="label">Estado:</div>
+        <div class="value"><span class="status-badge status-${asset.status}">${asset.status}</span></div>
+      </div>
     </div>
-    <div class="row">
-      <div class="label">Nombre:</div>
-      <div class="value">${asset.name}</div>
-    </div>
-    <div class="row">
-      <div class="label">Cliente:</div>
-      <div class="value">${asset.client?.businessName || 'N/A'}</div>
-    </div>
-    <div class="row">
-      <div class="label">Tipo:</div>
-      <div class="value">${asset.assetType?.name || 'N/A'}</div>
-    </div>
-    <div class="row">
-      <div class="label">Estado:</div>
-      <div class="value">${asset.status}</div>
-    </div>
-  </div>
 
-  <div class="section">
-    <div class="section-title">Especificaciones</div>
-    <div class="row">
-      <div class="label">Marca:</div>
-      <div class="value">${asset.brand || 'N/A'}</div>
+    <div class="section">
+      <div class="section-title">🏷️ ESPECIFICACIONES TÉCNICAS</div>
+      <div class="row">
+        <div class="label">Marca:</div>
+        <div class="value">${asset.brand || 'N/A'}</div>
+      </div>
+      <div class="row">
+        <div class="label">Modelo:</div>
+        <div class="value">${asset.model || 'N/A'}</div>
+      </div>
+      <div class="row">
+        <div class="label">Serial:</div>
+        <div class="value">${asset.serial || 'N/A'}</div>
+      </div>
+      <div class="row">
+        <div class="label">Ubicación:</div>
+        <div class="value">${asset.location || 'N/A'}</div>
+      </div>
     </div>
-    <div class="row">
-      <div class="label">Modelo:</div>
-      <div class="value">${asset.model || 'N/A'}</div>
-    </div>
-    <div class="row">
-      <div class="label">Serial:</div>
-      <div class="value">${asset.serial || 'N/A'}</div>
-    </div>
-    <div class="row">
-      <div class="label">Ubicación:</div>
-      <div class="value">${asset.location || 'N/A'}</div>
-    </div>
-  </div>
 
-  <div class="section">
-    <div class="section-title">Garantía y Mantenimiento</div>
-    <div class="row">
-      <div class="label">Fecha de Compra:</div>
-      <div class="value">${asset.purchaseDate ? new Date(asset.purchaseDate).toLocaleDateString('es-CO') : 'N/A'}</div>
+    <div class="section">
+      <div class="section-title">📅 GARANTÍA Y MANTENIMIENTO</div>
+      <div class="row">
+        <div class="label">Fecha de Compra:</div>
+        <div class="value">${asset.purchaseDate ? new Date(asset.purchaseDate).toLocaleDateString('es-CO') : 'N/A'}</div>
+      </div>
+      <div class="row">
+        <div class="label">Garantía Hasta:</div>
+        <div class="value">${asset.warrantyUntil ? new Date(asset.warrantyUntil).toLocaleDateString('es-CO') : 'N/A'}</div>
+      </div>
+      <div class="row">
+        <div class="label">Próximo Mantenimiento:</div>
+        <div class="value">${asset.nextMaintenance ? new Date(asset.nextMaintenance).toLocaleDateString('es-CO') : 'N/A'}</div>
+      </div>
     </div>
-    <div class="row">
-      <div class="label">Garantía Hasta:</div>
-      <div class="value">${asset.warrantyUntil ? new Date(asset.warrantyUntil).toLocaleDateString('es-CO') : 'N/A'}</div>
-    </div>
-    <div class="row">
-      <div class="label">Próximo Mantenimiento:</div>
-      <div class="value">${asset.nextMaintenance ? new Date(asset.nextMaintenance).toLocaleDateString('es-CO') : 'N/A'}</div>
-    </div>
-  </div>
 
-  <div class="section">
-    <div class="section-title">Acceso Remoto</div>
-    <div class="row">
-      <div class="label">IP:</div>
-      <div class="value">${asset.ipAddress || 'N/A'}</div>
+    <div class="section">
+      <div class="section-title">🌐 ACCESO REMOTO</div>
+      <div class="row">
+        <div class="label">Dirección IP:</div>
+        <div class="value">${asset.ipAddress || 'N/A'}</div>
+      </div>
+      <div class="row">
+        <div class="label">Dirección MAC:</div>
+        <div class="value">${asset.macAddress || 'N/A'}</div>
+      </div>
+      <div class="row">
+        <div class="label">Acceso Remoto:</div>
+        <div class="value">${asset.remoteAccess || 'No disponible'}</div>
+      </div>
     </div>
-    <div class="row">
-      <div class="label">MAC:</div>
-      <div class="value">${asset.macAddress || 'N/A'}</div>
-    </div>
-    <div class="row">
-      <div class="label">Acceso Remoto:</div>
-      <div class="value">${asset.remoteAccess || 'No disponible'}</div>
-    </div>
-  </div>
 
-  <div class="section">
-    <div class="section-title">Notas</div>
-    <p>${asset.notes || 'Sin notas'}</p>
-  </div>
+    <div class="section">
+      <div class="section-title">📝 NOTAS</div>
+      <div style="padding: 10px; background: #f9f9f9; border-left: 3px solid #1a7c40; border-radius: 4px;">
+        ${asset.notes || '<em>Sin notas adicionales</em>'}
+      </div>
+    </div>
 
-  <div class="qr">
-    ${asset.qrCodeUrl ? `<img src="${asset.qrCodeUrl}" alt="QR Code">` : '<p>QR no disponible</p>'}
+    <div class="footer">
+      <div class="company-info">Grupo Gipfel</div>
+      <p>Calle 96 #68F-24, Bogotá | Tel: 601 811 9749 | Email: info@grupogipfel.com</p>
+      <p>Documento generado el ${new Date().toLocaleDateString('es-CO')} a las ${new Date().toLocaleTimeString('es-CO')}</p>
+    </div>
   </div>
 </body>
 </html>
@@ -298,24 +361,72 @@ export class AssetsService {
   <meta charset="utf-8">
   <title>Reporte de Activos</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    h1 { color: #333; text-align: center; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-    th { background-color: #4CAF50; color: white; font-weight: bold; }
-    tr:nth-child(even) { background-color: #f2f2f2; }
-    .company-info { text-align: center; margin-bottom: 30px; color: #666; font-size: 12px; }
+    * { margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 4px solid #1a7c40;
+    }
+    .header-content h1 { color: #1a7c40; font-size: 28px; }
+    .header-content p { color: #666; margin-top: 5px; }
+    .logo { text-align: right; }
+    .logo img { height: 70px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      background: white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    th {
+      background: linear-gradient(135deg, #1a7c40 0%, #2a9d50 100%);
+      color: white;
+      padding: 15px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 13px;
+    }
+    td {
+      padding: 12px 15px;
+      border-bottom: 1px solid #e0e0e0;
+      font-size: 12px;
+    }
+    tr:hover { background: #f9f9f9; }
+    tr:nth-child(even) { background: #f5f5f5; }
+    .status {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: bold;
+    }
+    .status-ACTIVO { background: #d4edda; color: #155724; }
+    .status-EN_MANTENIMIENTO { background: #fff3cd; color: #856404; }
+    .status-DADO_DE_BAJA { background: #f8d7da; color: #721c24; }
+    .footer {
+      margin-top: 30px;
+      text-align: center;
+      color: #666;
+      font-size: 12px;
+      border-top: 2px solid #1a7c40;
+      padding-top: 15px;
+    }
   </style>
 </head>
 <body>
-  <div class="company-info">
-    <p><strong>Grupo Gipfel</strong></p>
-    <p>Calle 96 #68F-24, Bogotá | Tel: 601 811 9749</p>
-    <p>info@grupogipfel.com</p>
+  <div class="header">
+    <div class="header-content">
+      <h1>Reporte de Activos</h1>
+      <p>Generado el ${new Date().toLocaleDateString('es-CO')} | Total: ${assets.length} activos</p>
+    </div>
+    <div class="logo">
+      <img src="https://www.grupogipfel.com/imagenes/logo-gipfel.png" alt="Grupo Gipfel">
+    </div>
   </div>
-
-  <h1>Reporte de Activos</h1>
-  <p style="text-align: center; color: #666;">Generado el ${new Date().toLocaleDateString('es-CO')}</p>
 
   <table>
     <thead>
@@ -332,21 +443,22 @@ export class AssetsService {
     <tbody>
       ${assets.map(a => `
         <tr>
-          <td>${a.code || ''}</td>
-          <td>${a.name || ''}</td>
-          <td>${a.brand || ''}</td>
-          <td>${a.model || ''}</td>
-          <td>${a.assetType?.name || ''}</td>
-          <td>${a.client?.businessName || ''}</td>
-          <td>${a.status || ''}</td>
+          <td><strong>${a.code || 'N/A'}</strong></td>
+          <td>${a.name}</td>
+          <td>${a.brand || 'N/A'}</td>
+          <td>${a.model || 'N/A'}</td>
+          <td>${a.assetType?.name || 'N/A'}</td>
+          <td>${a.client?.businessName || 'N/A'}</td>
+          <td><span class="status status-${a.status}">${a.status}</span></td>
         </tr>
       `).join('')}
     </tbody>
   </table>
 
-  <p style="margin-top: 30px; font-size: 12px; color: #999;">
-    Total de activos: ${assets.length}
-  </p>
+  <div class="footer">
+    <p><strong>Grupo Gipfel</strong></p>
+    <p>Calle 96 #68F-24, Bogotá | Tel: 601 811 9749 | info@grupogipfel.com</p>
+  </div>
 </body>
 </html>
     `;
@@ -365,7 +477,7 @@ export class AssetsService {
     });
 
     const csv = [
-      ['Código', 'Nombre', 'Marca', 'Modelo', 'Serial', 'Tipo', 'Cliente', 'Estado', 'Ubicación'],
+      ['Código', 'Nombre', 'Marca', 'Modelo', 'Serial', 'Tipo', 'Cliente', 'Estado', 'Ubicación', 'Fecha Compra', 'Garantía'],
       ...assets.map(a => [
         a.code || '',
         a.name || '',
@@ -376,9 +488,11 @@ export class AssetsService {
         a.client?.businessName || '',
         a.status || '',
         a.location || '',
+        a.purchaseDate ? new Date(a.purchaseDate).toLocaleDateString('es-CO') : '',
+        a.warrantyUntil ? new Date(a.warrantyUntil).toLocaleDateString('es-CO') : '',
       ]),
     ]
-      .map(row => row.map(cell => `"${cell}"`).join(','))
+      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
       .join('\n');
 
     return csv;
