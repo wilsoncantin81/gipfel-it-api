@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
- 
+
 @Injectable()
 export class DashboardService {
   constructor(private prisma: PrismaService) {}
- 
+
   async getKPIs() {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -13,7 +13,8 @@ export class DashboardService {
     const [totalClients, activeClients, totalAssets, activeAssets,
       openTickets, criticalTickets, pendingWilson,
       reportsThisMonth, warrantyExpiring, maintDue, unreadAlerts,
-      salesThisMonth, pendingCommissions] = await Promise.all([
+      salesThisMonth, pendingCommissions,
+      ticketsNuevo, ticketsEnEjecucion, ticketsPorConfirmacion, ticketsPorFacturacion, ticketsCerrado] = await Promise.all([
       this.prisma.client.count(),
       this.prisma.client.count({ where: { status: 'ACTIVO' } }),
       this.prisma.asset.count(),
@@ -27,6 +28,11 @@ export class DashboardService {
       this.prisma.alert.count({ where: { isRead: false } }),
       this.prisma.ticket.aggregate({ where: { status: 'CERRADO', resolvedAt: { gte: startOfMonth } }, _sum: { salePrice: true, utility: true } }),
       this.prisma.commission.aggregate({ where: { status: 'PENDIENTE' }, _sum: { amount: true } }),
+      this.prisma.ticket.count({ where: { status: 'NUEVO' } }),
+      this.prisma.ticket.count({ where: { status: 'EN_EJECUCION' } }),
+      this.prisma.ticket.count({ where: { status: 'POR_CONFIRMACION' } }),
+      this.prisma.ticket.count({ where: { status: 'POR_FACTURACION' } }),
+      this.prisma.ticket.count({ where: { status: 'CERRADO' } }),
     ]);
     return {
       clients: { total: totalClients, active: activeClients },
@@ -39,9 +45,17 @@ export class DashboardService {
         utilityThisMonth: salesThisMonth._sum.utility || 0,
         pendingCommissions: pendingCommissions._sum.amount || 0,
       },
+      ticketsByStatus: {
+        NUEVO: ticketsNuevo,
+        EN_EJECUCION: ticketsEnEjecucion,
+        POR_CONFIRMACION: ticketsPorConfirmacion,
+        PENDIENTE_WILSON: pendingWilson,
+        POR_FACTURACION: ticketsPorFacturacion,
+        CERRADO: ticketsCerrado,
+      },
     };
   }
- 
+
   async getRecentActivity(limit = 10) {
     return this.prisma.maintenanceRecord.findMany({
       take: Number(limit),
@@ -49,7 +63,7 @@ export class DashboardService {
       include: { asset: { include: { client: true, assetType: true } }, technician: { select: { name: true } } },
     });
   }
- 
+
   async getWarrantyExpiring() {
     const in90 = new Date(Date.now() + 90*86400000);
     return this.prisma.asset.findMany({
@@ -58,7 +72,7 @@ export class DashboardService {
       orderBy: { warrantyUntil: 'asc' },
     });
   }
- 
+
   async getMaintenanceDue() {
     const in30 = new Date(Date.now() + 30*86400000);
     return this.prisma.asset.findMany({
@@ -67,7 +81,7 @@ export class DashboardService {
       orderBy: { nextMaintenance: 'asc' },
     });
   }
- 
+
   async getAssetsByType() {
     return this.prisma.assetType.findMany({
       where: { isActive: true },
@@ -75,7 +89,7 @@ export class DashboardService {
       orderBy: { name: 'asc' },
     });
   }
- 
+
   async getAssetsByClient() {
     const c = await this.prisma.client.findMany({
       where: { status: 'ACTIVO' },
@@ -84,7 +98,7 @@ export class DashboardService {
     });
     return c.map(x => ({ id: x.id, name: x.businessName, count: x._count.assets }));
   }
- 
+
   async getTechnicians() {
     return this.prisma.user.findMany({
       where: { isActive: true },
@@ -92,7 +106,7 @@ export class DashboardService {
       orderBy: { name: 'asc' },
     });
   }
- 
+
   async getFinancialSummary(query: any) {
     const where: any = { status: 'CERRADO' };
     if (query.from) where.resolvedAt = { ...where.resolvedAt, gte: new Date(query.from) };
@@ -109,7 +123,7 @@ export class DashboardService {
     const totalCommissions = tickets.reduce((s, t) => s + (t.commission?.amount || 0), 0);
     return { tickets, totalSales, totalCosts, totalUtility, totalCommissions, count: tickets.length };
   }
- 
+
   async getCommissions(query: any) {
     const where: any = {};
     if (query.userId) where.userId = query.userId;
@@ -123,14 +137,14 @@ export class DashboardService {
     const totalPaid = commissions.filter(c => c.status === 'PAGADA').reduce((s, c) => s + c.amount, 0);
     return { commissions, totalPending, totalPaid };
   }
- 
+
   async payCommission(id: string, notes?: string) {
     return this.prisma.commission.update({
       where: { id },
       data: { status: 'PAGADA', paidAt: new Date(), notes },
     });
   }
- 
+
   async exportFinancials(query: any) {
     const { tickets } = await this.getFinancialSummary(query);
     const ExcelJS = require('exceljs');
