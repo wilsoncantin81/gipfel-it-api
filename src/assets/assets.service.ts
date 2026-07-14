@@ -87,6 +87,15 @@ export class AssetsService {
     return this.prisma.asset.delete({ where: { id } });
   }
 
+  private escapeCsv(value: any): string {
+    if (value === null || value === undefined) return '';
+    const str = String(value);
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  }
+
   async getAssetPDF(id: string) {
     const asset = await this.prisma.asset.findUnique({
       where: { id },
@@ -477,57 +486,68 @@ export class AssetsService {
       include: { client: true, assetType: true },
     });
 
+    // Encontrar máximo número de componentes de notas para crear columnas dinámicas
+    let maxNoteComponents = 0;
+    assets.forEach(a => {
+      if (a.notes) {
+        const parts = a.notes.split('|').length;
+        if (parts > maxNoteComponents) maxNoteComponents = parts;
+      }
+    });
+
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Activos');
 
-    // Encabezados
-    worksheet.columns = [
-      { header: 'Código', key: 'code', width: 15 },
-      { header: 'Nombre', key: 'name', width: 25 },
-      { header: 'Marca', key: 'brand', width: 15 },
-      { header: 'Modelo', key: 'model', width: 15 },
-      { header: 'Serial', key: 'serial', width: 20 },
-      { header: 'Tipo', key: 'assetType', width: 20 },
-      { header: 'Cliente', key: 'client', width: 25 },
-      { header: 'Estado', key: 'status', width: 15 },
-      { header: 'Ubicación', key: 'location', width: 20 },
-      { header: 'IP', key: 'ipAddress', width: 15 },
-      { header: 'MAC', key: 'macAddress', width: 18 },
-      { header: 'Fecha Compra', key: 'purchaseDate', width: 15 },
-      { header: 'Garantía', key: 'warrantyUntil', width: 15 },
-      { header: 'Próx Mant.', key: 'nextMaintenance', width: 15 },
-      { header: 'Responsable', key: 'responsible', width: 20 },
-      { header: 'Notas', key: 'notes', width: 30 },
-    ];
+    // Encabezados base
+    const baseHeaders = ['Código', 'Nombre', 'Marca', 'Modelo', 'Serial', 'Tipo', 'Cliente', 'Estado', 'Ubicación', 'IP', 'MAC', 'Fecha Compra', 'Garantía', 'Próx Mant.', 'Responsable'];
 
-    // Estilo encabezados - CORREGIDO: 'middle' en lugar de 'center'
+    // Agregar encabezados dinámicos para notas
+    const noteHeaders = maxNoteComponents > 0 ? Array.from({ length: maxNoteComponents }, (_, i) => `Nota ${i + 1}`) : ['Notas'];
+    const allHeaders = [...baseHeaders, ...noteHeaders];
+
+    worksheet.columns = allHeaders.map((h, i) => ({
+      header: h,
+      key: i < baseHeaders.length ? baseHeaders[i].toLowerCase().replace(' ', '') : `nota${i - baseHeaders.length + 1}`,
+      width: h.includes('Nota') ? 20 : 15,
+    }));
+
+    // Estilo encabezados
     worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
     worksheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF002668' } };
     worksheet.getRow(1).alignment = { horizontal: 'center', vertical: 'middle' };
 
     // Datos
     assets.forEach(a => {
-      worksheet.addRow({
-        code: a.code || '',
-        name: a.name || '',
-        brand: a.brand || '',
-        model: a.model || '',
+      const noteParts = a.notes ? a.notes.split('|').map(n => n.trim()) : [];
+      const notesPadded = [...noteParts, ...Array(maxNoteComponents - noteParts.length).fill('')];
+
+      const rowData = {
+        código: a.code || '',
+        nombre: a.name || '',
+        marca: a.brand || '',
+        modelo: a.model || '',
         serial: a.serial || '',
-        assetType: a.assetType?.name || '',
-        client: a.client?.businessName || '',
-        status: a.status || '',
-        location: a.location || '',
-        ipAddress: a.ipAddress || '',
-        macAddress: a.macAddress || '',
-        purchaseDate: a.purchaseDate ? new Date(a.purchaseDate).toLocaleDateString('es-CO') : '',
-        warrantyUntil: a.warrantyUntil ? new Date(a.warrantyUntil).toLocaleDateString('es-CO') : '',
-        nextMaintenance: a.nextMaintenance ? new Date(a.nextMaintenance).toLocaleDateString('es-CO') : '',
-        responsible: a.responsible || '',
-        notes: a.notes || '',
+        tipo: a.assetType?.name || '',
+        cliente: a.client?.businessName || '',
+        estado: a.status || '',
+        ubicación: a.location || '',
+        ip: a.ipAddress || '',
+        mac: a.macAddress || '',
+        fechacompra: a.purchaseDate ? new Date(a.purchaseDate).toLocaleDateString('es-CO') : '',
+        garantía: a.warrantyUntil ? new Date(a.warrantyUntil).toLocaleDateString('es-CO') : '',
+        próxmant: a.nextMaintenance ? new Date(a.nextMaintenance).toLocaleDateString('es-CO') : '',
+        responsable: a.responsible || '',
+      };
+
+      // Agregar notas divididas
+      notesPadded.forEach((note, i) => {
+        rowData[`nota${i + 1}`] = note;
       });
+
+      worksheet.addRow(rowData);
     });
 
-    // Alinear datos - CORREGIDO: 'middle' en lugar de 'center'
+    // Alinear datos
     worksheet.eachRow((row, rowNumber) => {
       row.eachCell((cell) => {
         if (rowNumber > 1) {
@@ -536,7 +556,6 @@ export class AssetsService {
       });
     });
 
-    // Generar buffer
     const buffer = await workbook.xlsx.writeBuffer();
     return buffer as any;
   }
