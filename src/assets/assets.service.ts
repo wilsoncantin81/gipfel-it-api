@@ -502,7 +502,7 @@ export class AssetsService {
     const baseHeaders = ['Código', 'Nombre', 'Marca', 'Modelo', 'Serial', 'Tipo', 'Cliente', 'Estado', 'Ubicación', 'IP', 'MAC', 'Fecha Compra', 'Garantía', 'Próx Mant.', 'Responsable'];
 
     // Agregar encabezados dinámicos para notas
-    const noteHeaders = maxNoteComponents > 0 ? Array.from({ length: maxNoteComponents }, (_, i) => `Nota ${i + 1}`) : ['Notas'];
+    hconst noteHeaders = maxNoteComponents > 0 ?['CPU', 'RAM', 'Disco', 'SO', 'Programas', 'AnyDesk', 'Clave usuario', 'Monitor'].slice(0, maxNoteComponents) : ['Notas'];
     const allHeaders = [...baseHeaders, ...noteHeaders];
 
     worksheet.columns = allHeaders.map((h, i) => ({
