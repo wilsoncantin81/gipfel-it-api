@@ -117,17 +117,17 @@ export class AssetsService {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 4px solid #1a7c40;
+      border-bottom: 4px solid #002668;
       padding-bottom: 20px;
       margin-bottom: 30px;
     }
-    .header-left h1 { color: #1a7c40; font-size: 24px; }
+    .header-left h1 { color: #002668; font-size: 24px; }
     .header-left p { color: #666; font-size: 14px; margin-top: 5px; }
     .logo { text-align: right; }
     .logo img { height: 60px; }
     .section { margin-bottom: 25px; }
     .section-title {
-      background: linear-gradient(135deg, #1a7c40 0%, #2a9d50 100%);
+      background: linear-gradient(135deg, #002668 0%, #003d99 100%);
       color: white;
       padding: 12px 15px;
       font-weight: bold;
@@ -144,7 +144,7 @@ export class AssetsService {
     .label {
       font-weight: 600;
       width: 30%;
-      color: #1a7c40;
+      color: #002668;
       font-size: 13px;
     }
     .value {
@@ -165,12 +165,12 @@ export class AssetsService {
     .footer {
       margin-top: 40px;
       padding-top: 20px;
-      border-top: 2px solid #1a7c40;
+      border-top: 2px solid #002668;
       text-align: center;
       color: #666;
       font-size: 11px;
     }
-    .company-info { margin-top: 10px; font-weight: bold; color: #1a7c40; }
+    .company-info { margin-top: 10px; font-weight: bold; color: #002668; }
   </style>
 </head>
 <body>
@@ -263,7 +263,7 @@ export class AssetsService {
 
     <div class="section">
       <div class="section-title">📝 NOTAS</div>
-      <div style="padding: 10px; background: #f9f9f9; border-left: 3px solid #1a7c40; border-radius: 4px;">
+      <div style="padding: 10px; background: #f9f9f9; border-left: 3px solid #002668; border-radius: 4px;">
         ${asset.notes || '<em>Sin notas adicionales</em>'}
       </div>
     </div>
@@ -378,9 +378,9 @@ export class AssetsService {
       align-items: center;
       margin-bottom: 30px;
       padding-bottom: 20px;
-      border-bottom: 4px solid #1a7c40;
+      border-bottom: 4px solid #002668;
     }
-    .header-content h1 { color: #1a7c40; font-size: 28px; }
+    .header-content h1 { color: #002668; font-size: 28px; }
     .header-content p { color: #666; margin-top: 5px; }
     .logo { text-align: right; }
     .logo img { height: 70px; }
@@ -392,7 +392,7 @@ export class AssetsService {
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     th {
-      background: linear-gradient(135deg, #1a7c40 0%, #2a9d50 100%);
+      background: linear-gradient(135deg, #002668 0%, #003d99 100%);
       color: white;
       padding: 15px;
       text-align: left;
@@ -421,7 +421,7 @@ export class AssetsService {
       text-align: center;
       color: #666;
       font-size: 12px;
-      border-top: 2px solid #1a7c40;
+      border-top: 2px solid #002668;
       padding-top: 15px;
     }
   </style>
