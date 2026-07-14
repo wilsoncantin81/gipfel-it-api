@@ -500,10 +500,10 @@ export class AssetsService {
       { header: 'Notas', key: 'notes', width: 30 },
     ];
 
-    // Estilo encabezados
+    // Estilo encabezados - CORREGIDO: 'middle' en lugar de 'center'
     worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
     worksheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF002668' } };
-    worksheet.getRow(1).alignment = { horizontal: 'center', vertical: 'center' };
+    worksheet.getRow(1).alignment = { horizontal: 'center', vertical: 'middle' };
 
     // Datos
     assets.forEach(a => {
@@ -527,11 +527,11 @@ export class AssetsService {
       });
     });
 
-    // Alinear datos
+    // Alinear datos - CORREGIDO: 'middle' en lugar de 'center'
     worksheet.eachRow((row, rowNumber) => {
       row.eachCell((cell) => {
         if (rowNumber > 1) {
-          cell.alignment = { horizontal: 'left', vertical: 'center', wrapText: true };
+          cell.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
         }
       });
     });
