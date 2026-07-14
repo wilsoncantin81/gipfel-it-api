@@ -15,28 +15,45 @@ export class AssetsController {
 
   @Get('export/excel')
   async exportExcel(@Query() q: any, @Res() res: Response) {
-    const csv = await this.service.exportExcel(q);
-    const timestamp = new Date().toISOString().split('T')[0];
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename=activos_${timestamp}.csv`);
-    res.send('﻿' + csv); // BOM para Excel
+    try {
+      const csv = await this.service.exportExcel(q);
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.setHeader('Content-Length', Buffer.byteLength(csv, 'utf8'));
+      res.setHeader('Content-Disposition', 'attachment; filename="activos.csv"');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+
+      // Enviar BOM UTF-8 + CSV
+      res.send('﻿' + csv);
+    } catch (error) {
+      res.status(500).json({ error: 'Error generating Excel export' });
+    }
   }
 
   @Get('export/pdf')
   async exportPDF(@Query() q: any, @Res() res: Response) {
-    const html = await this.service.exportPDF(q);
-    const timestamp = new Date().toISOString().split('T')[0];
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename=reporte_activos_${timestamp}.html`);
-    res.send(html);
+    try {
+      const html = await this.service.exportPDF(q);
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Content-Disposition', 'attachment; filename="reporte_activos.html"');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.send(html);
+    } catch (error) {
+      res.status(500).json({ error: 'Error generating PDF export' });
+    }
   }
 
   @Get(':id/pdf')
   async getAssetPDF(@Param('id') id: string, @Res() res: Response) {
-    const html = await this.service.getAssetPDF(id);
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename=hoja_vida_${id}.html`);
-    res.send(html);
+    try {
+      const html = await this.service.getAssetPDF(id);
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="hoja_vida_${id}.html"`);
+      res.send(html);
+    } catch (error) {
+      res.status(500).json({ error: 'Error generating asset PDF' });
+    }
   }
 
   @Get(':id/qr') getQR(@Param('id') id: string) { return this.service.getQR(id); }
