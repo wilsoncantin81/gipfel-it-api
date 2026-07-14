@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
+import * as ExcelJS from 'exceljs';
 
 @Injectable()
 export class AssetsService {
@@ -84,15 +85,6 @@ export class AssetsService {
 
   async remove(id: string) {
     return this.prisma.asset.delete({ where: { id } });
-  }
-
-  private escapeCsv(value: any): string {
-    if (value === null || value === undefined) return '';
-    const str = String(value);
-    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-      return `"${str.replace(/"/g, '""')}"`;
-    }
-    return str;
   }
 
   async getAssetPDF(id: string) {
@@ -485,26 +477,67 @@ export class AssetsService {
       include: { client: true, assetType: true },
     });
 
-    const headers = ['Código', 'Nombre', 'Marca', 'Modelo', 'Serial', 'Tipo', 'Cliente', 'Estado', 'Ubicación', 'Fecha Compra', 'Garantía'];
-    const rows = assets.map(a => [
-      a.code || '',
-      a.name || '',
-      a.brand || '',
-      a.model || '',
-      a.serial || '',
-      a.assetType?.name || '',
-      a.client?.businessName || '',
-      a.status || '',
-      a.location || '',
-      a.purchaseDate ? new Date(a.purchaseDate).toLocaleDateString('es-CO') : '',
-      a.warrantyUntil ? new Date(a.warrantyUntil).toLocaleDateString('es-CO') : '',
-    ]);
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Activos');
 
-    const csv = [
-      headers.map(h => this.escapeCsv(h)).join(','),
-      ...rows.map(row => row.map(cell => this.escapeCsv(cell)).join(',')),
-    ].join('\n');
+    // Encabezados
+    worksheet.columns = [
+      { header: 'Código', key: 'code', width: 15 },
+      { header: 'Nombre', key: 'name', width: 25 },
+      { header: 'Marca', key: 'brand', width: 15 },
+      { header: 'Modelo', key: 'model', width: 15 },
+      { header: 'Serial', key: 'serial', width: 20 },
+      { header: 'Tipo', key: 'assetType', width: 20 },
+      { header: 'Cliente', key: 'client', width: 25 },
+      { header: 'Estado', key: 'status', width: 15 },
+      { header: 'Ubicación', key: 'location', width: 20 },
+      { header: 'IP', key: 'ipAddress', width: 15 },
+      { header: 'MAC', key: 'macAddress', width: 18 },
+      { header: 'Fecha Compra', key: 'purchaseDate', width: 15 },
+      { header: 'Garantía', key: 'warrantyUntil', width: 15 },
+      { header: 'Próx Mant.', key: 'nextMaintenance', width: 15 },
+      { header: 'Responsable', key: 'responsible', width: 20 },
+      { header: 'Notas', key: 'notes', width: 30 },
+    ];
 
-    return csv;
+    // Estilo encabezados
+    worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    worksheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF002668' } };
+    worksheet.getRow(1).alignment = { horizontal: 'center', vertical: 'center' };
+
+    // Datos
+    assets.forEach(a => {
+      worksheet.addRow({
+        code: a.code || '',
+        name: a.name || '',
+        brand: a.brand || '',
+        model: a.model || '',
+        serial: a.serial || '',
+        assetType: a.assetType?.name || '',
+        client: a.client?.businessName || '',
+        status: a.status || '',
+        location: a.location || '',
+        ipAddress: a.ipAddress || '',
+        macAddress: a.macAddress || '',
+        purchaseDate: a.purchaseDate ? new Date(a.purchaseDate).toLocaleDateString('es-CO') : '',
+        warrantyUntil: a.warrantyUntil ? new Date(a.warrantyUntil).toLocaleDateString('es-CO') : '',
+        nextMaintenance: a.nextMaintenance ? new Date(a.nextMaintenance).toLocaleDateString('es-CO') : '',
+        responsible: a.responsible || '',
+        notes: a.notes || '',
+      });
+    });
+
+    // Alinear datos
+    worksheet.eachRow((row, rowNumber) => {
+      row.eachCell((cell) => {
+        if (rowNumber > 1) {
+          cell.alignment = { horizontal: 'left', vertical: 'center', wrapText: true };
+        }
+      });
+    });
+
+    // Generar buffer
+    const buffer = await workbook.xlsx.writeBuffer();
+    return buffer as any;
   }
 }
