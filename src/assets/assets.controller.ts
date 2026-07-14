@@ -16,16 +16,12 @@ export class AssetsController {
   @Get('export/excel')
   async exportExcel(@Query() q: any, @Res() res: Response) {
     try {
-      const csv = await this.service.exportExcel(q);
-      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-      res.setHeader('Content-Length', Buffer.byteLength(csv, 'utf8'));
-      res.setHeader('Content-Disposition', 'attachment; filename="activos.csv"');
+      const buffer = await this.service.exportExcel(q);
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename="activos.xlsx"');
+      res.setHeader('Content-Length', buffer.length);
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-      res.setHeader('Pragma', 'no-cache');
-      res.setHeader('Expires', '0');
-
-      // Enviar BOM UTF-8 + CSV
-      res.send('﻿' + csv);
+      res.send(buffer);
     } catch (error) {
       res.status(500).json({ error: 'Error generating Excel export' });
     }
