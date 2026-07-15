@@ -263,6 +263,7 @@ export class ReportsService {
         }
       });
       y += 5;
+    }
       
 
     // ── SIGNATURES ───────────────────────────────────────
