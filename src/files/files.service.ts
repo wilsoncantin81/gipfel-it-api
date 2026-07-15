@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+himport { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { Client } from 'basic-ftp';
 import * as path from 'path';
@@ -14,9 +14,9 @@ export class FilesService {
   private async connectFTP() {
     if (!this.ftp.closed) return;
     await this.ftp.access({
-      host: 'ftp.grupogipfel.com',
-      user: 'uploads@grupogipfel.com',
-      password: process.env.FTP_PASSWORD || '',
+      host: process.env.FTP_HOST || 'ftp.grupogipfel.com',
+      user: process.env.FTP_USER || 'uploads@grupogipfel.com',
+      password: process.env.FTP_PASS || '',
       port: 21,
     });
   }
