@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
-import { notifyTicketAssigned } from '../common/notify';
+import { notifyTicketAssigned, notifyNewTicket } from '../common/notify';
 
 @Injectable()
   export class TicketsService {
@@ -84,6 +84,8 @@ async create(dto: any) {
   await this.logStatusChange(ticket.id, 'NUEVO', rest.userId);
   if (data.assignedToId) {
     notifyTicketAssigned(this.prisma, ticket.id).catch(() => {});
+  } else {
+          notifyNewTicket(this.prisma, ticket.id).catch(() => {});
   }
   return ticket;
 }
