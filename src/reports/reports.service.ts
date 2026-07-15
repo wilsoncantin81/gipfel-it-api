@@ -57,6 +57,44 @@ export class ReportsService {
     });
   }
 
+    async update(id: string, dto: any, userId?: string) {
+          const before = await this.prisma.serviceReport.findUnique({ where: { id } });
+          if (!before) throw new Error('Reporte no encontrado');
+          const data: any = {};
+          if (dto.description !== undefined) data.description = dto.description;
+          if (dto.observations !== undefined) data.observations = dto.observations;
+          if (dto.conclusion !== undefined) data.conclusion = dto.conclusion;
+          if (dto.serviceType !== undefined) data.serviceType = dto.serviceType;
+          if (dto.date !== undefined) data.date = this.parseDate(dto.date);
+          const updated = await this.prisma.serviceReport.update({ where: { id }, data });
+          const changedFields = Object.keys(data);
+          if (changedFields.length > 0) {
+                  try {
+                            const beforeVals: any = {};
+                            changedFields.forEach((k) => { beforeVals[k] = (before as any)[k]; });
+                            await this.prisma.activityLog.create({
+                                        data: {
+                                                      userId: userId || null,
+                                                      action: 'REPORT_UPDATE',
+                                                      entityType: 'REPORT',
+                                                      entityId: id,
+                                                      meta: { fields: changedFields, before: beforeVals, after: data },
+                                        },
+                            });
+                  } catch (e) {}
+          }
+          return updated;
+    }
+
+    async getAuditLog(id: string) {
+          return this.prisma.activityLog.findMany({
+                  where: { entityType: 'REPORT', entityId: id },
+                  orderBy: { createdAt: 'desc' },
+                  include: { user: { select: { id: true, name: true } } },
+          });
+    }
+  
+
     async create(dto: any) {
           const count = await this.prisma.serviceReport.count();
           const reportNumber = `RPT-${String(count + 1).padStart(5, '0')}`;
