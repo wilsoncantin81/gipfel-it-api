@@ -4,7 +4,7 @@ import { PrismaService } from '../common/prisma.service';
 import * as bcrypt from 'bcrypt';
 
 const ALL_MODULES = ['dashboard','clientes','activos','mantenimiento','reportes','tickets','tipos','usuarios','financiero','comisiones'];
-const CLIENT_MODULES = ['activos', 'tickets'];
+const CLIENT_MODULES = ['activos', 'tickets', 'reportes', 'mantenimiento', 'dashboard'];
 
 @Injectable()
   export class AuthService {
