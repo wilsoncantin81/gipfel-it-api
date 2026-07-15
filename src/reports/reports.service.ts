@@ -57,51 +57,52 @@ export class ReportsService {
     });
   }
 
-  async create(dto: any) {
-    const count = await this.prisma.serviceReport.count();
-    const reportNumber = `RPT-${String(count + 1).padStart(5, '0')}`;
-    const { assetIds, observations, conclusion, signatureUrl, receivedBy, ...data } = dto;
-    const rpt = await this.prisma.serviceReport.create({
-      data: {
-        reportNumber,
-        clientId: data.clientId,
-        technicianId: data.technicianId || undefined,
-        date: new Date(data.date),
-        serviceType: data.serviceType,
-        description: data.description,
-        observations: observations || undefined,
-        conclusion: conclusion || undefined,
-        signatureUrl: signatureUrl || undefined,
-        assets: assetIds?.length
-          ? { create: assetIds.map((a: any) => ({ assetId: typeof a === 'string' ? a : a.id })) }
-          : undefined,
-      },
-      include: { client: true, technician: { select: { id: true, name: true } } },
-    });
-
-    // Auto-create maintenance records for each asset
-    if (assetIds?.length) {
-      for (const a of assetIds) {
-        const assetId = typeof a === 'string' ? a : a.id;
-        const workDetail = typeof a === 'object' ? a.workDetail : undefined;
-        try {
-          await this.prisma.maintenanceRecord.create({
-            data: {
-              assetId,
-              date: new Date(data.date),
-              technicianId: data.technicianId || undefined,
-              type: 'CORRECTIVO',
-              description: data.description || 'Servicio técnico',
-              workDone: workDetail || observations || undefined,
-            },
+    async create(dto: any) {
+          const count = await this.prisma.serviceReport.count();
+          const reportNumber = `RPT-${String(count + 1).padStart(5, '0')}`;
+          const { assetIds, observations, conclusion, signatureUrl, receivedBy, ...data } = dto;
+          const rpt = await this.prisma.serviceReport.create({
+                  data: {
+                            reportNumber,
+                            clientId: data.clientId,
+                            technicianId: data.technicianId || undefined,
+                            date: new Date(data.date),
+                            serviceType: data.serviceType,
+                            description: data.description,
+                            observations: observations || undefined,
+                            conclusion: conclusion || undefined,
+                            signatureUrl: signatureUrl || undefined,
+                            assets: assetIds?.length
+                                        ? { create: assetIds.map((a: any) => ({ assetId: typeof a === 'string' ? a : a.id, workDetail: typeof a === 'object' ? (a.workDetail || undefined) : undefined })) }
+                                        : undefined,
+                  },
+                  include: { client: true, technician: { select: { id: true, name: true } } },
           });
-        } catch {}
-      }
+          // Auto-create maintenance records for each asset
+          if (assetIds?.length) {
+                  for (const a of assetIds) {
+                            const assetId = typeof a === 'string' ? a : a.id;
+                            const workDetail = typeof a === 'object' ? a.workDetail : undefined;
+                            try {
+                                        await this.prisma.maintenanceRecord.create({
+                                                      data: {
+                                                                      assetId,
+                                                                      date: new Date(data.date),
+                                                                      technicianId: data.technicianId || undefined,
+                                                                      type: 'CORRECTIVO',
+                                                                      description: data.description || 'Servicio técnico',
+                                                                      workDone: workDetail || observations || undefined,
+                                                                      reportId: rpt.id,
+                                                      },
+                                        });
+                            } catch (e) {
+                                        console.error('Error creando registro de mantenimiento:', e);
+                            }
+                  }
+          }
+          return rpt;
     }
-
-    return rpt;
-  }
-
+  
   async saveSignature(id: string, signature: string) {
     return this.prisma.serviceReport.update({ where: { id }, data: { signatureUrl: signature } });
   }
