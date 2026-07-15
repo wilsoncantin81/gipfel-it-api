@@ -319,21 +319,23 @@ export class ReportsService {
     const recipient = toEmail || client?.email;
     if (!recipient) throw new Error('No hay correo destinatario');
 
-    const assetsHtml = assets.length > 0 ? `
-      <table style="width:100%;border-collapse:collapse;margin-top:8px">
-        <tr style="background:#00AEEF;color:white">
-          <th style="padding:6px;text-align:left">Equipo</th>
-          <th style="padding:6px;text-align:left">Tipo</th>
-          <th style="padding:6px;text-align:left">Serial</th>
-        </tr>
-        ${assets.map((ra: any, i: number) => `
-          <tr style="background:${i % 2 === 0 ? '#f9f9f9' : 'white'}">
-            <td style="padding:6px;border-bottom:1px solid #eee">${ra.asset?.name || '–'}</td>
-            <td style="padding:6px;border-bottom:1px solid #eee">${ra.asset?.assetType?.name || '–'}</td>
-            <td style="padding:6px;border-bottom:1px solid #eee">${ra.asset?.serial || '–'}</td>
-          </tr>`).join('')}
-      </table>` : '<p style="color:#888">Sin equipos registrados</p>';
-
+const assetsHtml = assets.length > 0 ? `
+<table style="width:100%;border-collapse:collapse;margin-top:8px">
+<tr style="background:#00AEEF;color:white">
+<th style="padding:6px;text-align:left">Equipo</th>
+<th style="padding:6px;text-align:left">Tipo</th>
+<th style="padding:6px;text-align:left">Serial</th>
+<th style="padding:6px;text-align:left">Trabajo Realizado</th>
+</tr>
+${assets.map((ra: any, i: number) => `
+<tr style="background:${i % 2 === 0 ? '#f9f9f9' : 'white'}">
+<td style="padding:6px;border-bottom:1px solid #eee">${ra.asset?.name || '-'}</td>
+<td style="padding:6px;border-bottom:1px solid #eee">${ra.asset?.assetType?.name || '-'}</td>
+<td style="padding:6px;border-bottom:1px solid #eee">${ra.asset?.serial || '-'}</td>
+<td style="padding:6px;border-bottom:1px solid #eee">${ra.workDetail || '-'}</td>
+</tr>`).join('')}
+</table>` : '<p style="color:#888">Sin equipos registrados</p>';
+    
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
 <body style="font-family:Arial,sans-serif;margin:0;padding:0;background:#f4f4f4">
   <div style="max-width:600px;margin:20px auto;background:white;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
@@ -367,7 +369,7 @@ export class ReportsService {
                 <p style="margin:8px 0 0;color:#333">${rpt.observations}</p>
       </div>` : ''}
               ${rpt.conclusion ? `<div style="background:#fff3cd;border-left:4px solid #ffc107;padding:12px;margin-bottom:16px;border-radius:0 4px 4px 0">
-        <strong style="color:#856404">Recomendaciones:</strong>
+        <strong style="color:#856404">Conclusión:</strong>
                 <p style="margin:8px 0 0;color:#333">${rpt.conclusion}</p>
       </div>` : ''}
       <strong style="color:#0A4F8C">Equipos Intervenidos:</strong>
