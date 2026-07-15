@@ -1,4 +1,4 @@
-﻿import { Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { Client } from 'basic-ftp';
 import { Readable } from 'stream';
@@ -29,7 +29,7 @@ export class FilesService {
       
       for (const file of files) {
         const fileStream = Readable.from(file.buffer);
-        await this.ftp.uploadFrom(fileStream, `/uploads/${file.originalname}`);
+        await this.ftp.uploadFrom(fileStream, `/public_html/uploads/${file.originalname}`);
         
         const dbFile = await this.prisma.assetFile.create({
           data: {
@@ -67,7 +67,7 @@ export class FilesService {
     
     try {
       await this.connectFTP();
-      await this.ftp.remove(`/uploads/${file.storageName}`);
+      await this.ftp.remove(`/public_html/uploads/${file.storageName}`);
     } catch (error) {
       console.error('Error deleting from FTP:', error);
     } finally {
