@@ -1,7 +1,7 @@
 import { Controller, Post, Delete, Param, UseGuards, UseInterceptors, UploadedFiles, BadRequestException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { FilesInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
+import { memoryStorage } from 'multer';
 import { extname } from 'path';
 import { FilesService } from './files.service';
 import { PrismaService } from '../common/prisma.service';
@@ -12,7 +12,7 @@ const storage = diskStorage({
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
     cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
   },
-});
+})const storage = memoryStorage();;
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('files')
