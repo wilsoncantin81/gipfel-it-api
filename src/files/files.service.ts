@@ -34,7 +34,7 @@ export class FilesService {
 
         // Subir a SiteGround
         const fileStream = fs.createReadStream(file.path);
-                await this.ftp.uploadFrom(fileStream, `/public_html/uploads/${uniqueName}`);// Crear registro en BD
+                await this.ftp.uploadFrom(fileStream, `/uploads/${uniqueName}`);
         const dbFile = await this.prisma.assetFile.create({
           data: {
             assetId,
