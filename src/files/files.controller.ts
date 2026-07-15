@@ -20,7 +20,6 @@ export class FilesController {
     if (!files || files.length === 0) {
       throw new BadRequestException('No files provided');
     }
-    
     const savedFiles = await this.filesService.saveAssetFiles(assetId, files);
     return { success: true, files: savedFiles };
   }

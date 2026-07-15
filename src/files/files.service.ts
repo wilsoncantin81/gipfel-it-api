@@ -2,7 +2,6 @@
 import { PrismaService } from '../common/prisma.service';
 import { Client } from 'basic-ftp';
 import { Readable } from 'stream';
-import * as path from 'path';
 
 @Injectable()
 export class FilesService {
@@ -30,11 +29,8 @@ export class FilesService {
       
       for (const file of files) {
         const fileStream = Readable.from(file.buffer);
-        
-        // Subir a FTP en /uploads/
         await this.ftp.uploadFrom(fileStream, `/uploads/${file.originalname}`);
         
-        // Guardar en BD
         const dbFile = await this.prisma.assetFile.create({
           data: {
             assetId,
@@ -67,7 +63,6 @@ export class FilesService {
 
   async deleteFile(fileId: string) {
     const file = await this.prisma.assetFile.findUnique({ where: { id: fileId } });
-    
     if (!file) throw new Error('File not found');
     
     try {
