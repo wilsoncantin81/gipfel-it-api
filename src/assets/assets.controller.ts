@@ -3,13 +3,14 @@ import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Response } from 'express';
 import { AssetsService } from './assets.service';
+import { PrismaService } from '../common/prisma.service';
 
 @ApiTags('Assets')
 @ApiBearerAuth()
 @UseGuards(AuthGuard('jwt'))
 @Controller('assets')
 export class AssetsController {
-  constructor(private readonly service: AssetsService) {}
+  constructor(private readonly service: AssetsService, private readonly prisma: PrismaService) {}
 
   @Get() findAll(@Query() q: any) { return this.service.findAll(q); }
 
@@ -17,9 +18,22 @@ export class AssetsController {
   async exportExcel(@Query() q: any, @Res() res: Response) {
     try {
       const buffer = await this.service.exportExcel(q);
+
+      // Obtener nombre del cliente
+      let clientName = 'activos';
+      if (q.clientId) {
+        const client = await this.prisma.client.findUnique({
+          where: { id: q.clientId },
+          select: { businessName: true },
+        });
+        if (client?.businessName) {
+          clientName = `activos_${client.businessName.replace(/\s+/g, '_')}`;
+        }
+      }
+
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Length', buffer.length);
-      res.setHeader('Content-Disposition', 'attachment; filename="activos.xlsx"');
+      res.setHeader('Content-Disposition', `attachment; filename="${clientName}.xlsx"`);
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
