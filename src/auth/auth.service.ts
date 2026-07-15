@@ -44,7 +44,17 @@ async register(dto: any) {
     data: { name: dto.name, email: dto.email, passwordHash, role, permissions, clientId: role === 'CLIENTE' ? dto.clientId : null, phone: dto.phone || undefined, whatsappApiKey: dto.whatsappApiKey || undefined },
   });
   return { id: user.id, name: user.name, email: user.email, role: user.role, clientId: user.clientId };
-}
+
+  async updateUser(id: string, dto: any) {
+      const data: any = {};
+        if (dto.name !== undefined) data.name = dto.name;
+        if (dto.email !== undefined) data.email = dto.email;
+        if (dto.role !== undefined) data.role = dto.role;
+        if (dto.clientId !== undefined) data.clientId = dto.role === 'CLIENTE' ? dto.clientId : null;
+        return this.prisma.user.update({ where: { id }, data, select: { id: true, name: true, email: true, role: true, clientId: true } });
+  }
+  
+  }
 
 async getProfile(userId: string) {
   return this.prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true, role: true, isActive: true, permissions: true, clientId: true, phone: true, whatsappApiKey: true } });
