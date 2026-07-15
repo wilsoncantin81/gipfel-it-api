@@ -28,7 +28,7 @@ export class FilesService {
       await this.connectFTP();
       for (const file of files) {
         const fileStream = Readable.from(file.buffer);
-        await this.ftp.uploadFrom(fileStream, `/public_html/uploads/${file.originalname}`);
+        await this.ftp.uploadFrom(fileStream, `/uploads/${file.originalname}`);
 
         const dbFile = await this.prisma.assetFile.create({
           data: {
@@ -57,9 +57,9 @@ export class FilesService {
     if (file) {
       try {
         await this.connectFTP();
-        await this.ftp.remove(`/public_html/uploads/${file.storageName}`);
+        await this.ftp.remove(`/uploads/${file.storageName}`);
       } catch (error) {
-        console.error('Error deleting:', error);
+        console.error('Error:', error);
       } finally {
         if (!this.ftp.closed) await this.ftp.close();
       }
@@ -68,10 +68,6 @@ export class FilesService {
   }
 
   async getAssetFiles(assetId: string) {
-    return this.prisma.assetFile.findMany({
-      where: { assetId },
-      orderBy: { uploadedAt: 'desc' },
-    });
+    return this.prisma.assetFile.findMany({ where: { assetId }, orderBy: { uploadedAt: 'desc' } });
   }
 }
-
