@@ -2,7 +2,7 @@
 import { PrismaService } from '../common/prisma.service';
 import { Client } from 'basic-ftp';
 import * as path from 'path';
-import { Readable, Writable } from 'stream';
+import { Readable } from 'stream';
 
 @Injectable()
 export class FilesService {
@@ -28,7 +28,7 @@ export class FilesService {
       await this.connectFTP();
       for (const file of files) {
         const fileStream = Readable.from(file.buffer);
-        await this.ftp.uploadFrom(fileStream, `/${file.originalname}`);
+        await this.ftp.uploadFrom(fileStream, `/public_html/uploads/${file.originalname}`);
 
         const dbFile = await this.prisma.assetFile.create({
           data: {
@@ -37,7 +37,7 @@ export class FilesService {
             storageName: file.originalname,
             mimetype: file.mimetype,
             size: file.size,
-            fileUrl: `https://www.grupogipfel.com/${file.originalname}`,
+            fileUrl: `https://www.grupogipfel.com/uploads/${file.originalname}`,
             uploadedAt: new Date(),
           },
         });
@@ -52,40 +52,12 @@ export class FilesService {
     return savedFiles;
   }
 
-  async downloadFile(fileId: string) {
-    const file = await this.prisma.assetFile.findUnique({ where: { id: fileId } });
-    if (!file) throw new Error('File not found');
-
-    try {
-      await this.connectFTP();
-      const chunks: Buffer[] = [];
-
-      await this.ftp.downloadTo(
-        new Writable({
-          write(chunk: Buffer, encoding: string, callback: (error?: Error | null) => void) {
-            chunks.push(chunk);
-            callback();
-          }
-        }),
-        `/${file.storageName}`
-      );
-
-      return {
-        filename: file.filename,
-        mimetype: file.mimetype,
-        buffer: Buffer.concat(chunks),
-      };
-    } finally {
-      if (!this.ftp.closed) await this.ftp.close();
-    }
-  }
-
   async deleteFile(fileId: string) {
     const file = await this.prisma.assetFile.findUnique({ where: { id: fileId } });
     if (file) {
       try {
         await this.connectFTP();
-        await this.ftp.remove(`/${file.storageName}`);
+        await this.ftp.remove(`/public_html/uploads/${file.storageName}`);
       } catch (error) {
         console.error('Error deleting:', error);
       } finally {
