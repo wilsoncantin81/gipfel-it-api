@@ -22,7 +22,7 @@ async login(user: any) {
   const fullUser = await this.prisma.user.findUnique({ where: { id: user.id }, select: { id: true, name: true, email: true, role: true, permissions: true, clientId: true } });
   const defaultPermissions = fullUser?.role === 'CLIENTE' ? CLIENT_MODULES : ALL_MODULES;
   const permissions = (fullUser?.permissions as string[]) || defaultPermissions;
-  const payload = { sub: user.id, email: user.email, role: user.role, clientId: fullUser?.clientId || null };
+  const payload = { sub: user.id, email: user.email, role: user.role, clientId: fullUser?.clientId || null, permissions };
   return {
     access_token: this.jwt.sign(payload),
     user: { id: user.id, name: user.name, email: user.email, role: user.role, permissions, clientId: fullUser?.clientId || null },
