@@ -9,19 +9,25 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { ReportsModule } from './reports/reports.module';
 import { AssetTypesModule } from './asset-types/asset-types.module';
 import { FilesModule } from './files/files.module';
+import { FinancialsModule } from './financials/financials.module';
+import { MaintenanceModule } from './maintenance/maintenance.module';
+import { AlertsModule } from './alerts/alerts.module';
 
 @Module({
-    imports: [
-          ConfigModule.forRoot({ isGlobal: true }),
-          PrismaModule,
-          AuthModule,
-          ClientsModule,
-          AssetsModule,
-          TicketsModule,
-          DashboardModule,
-            AssetTypesModule,
-          ReportsModule,
-            FilesModule,
-        ],
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    PrismaModule,
+    AuthModule,
+    ClientsModule,
+    AssetsModule,
+    TicketsModule,
+    DashboardModule,
+    AssetTypesModule,
+    ReportsModule,
+    FilesModule,
+    FinancialsModule,
+    MaintenanceModule,
+    AlertsModule,
+  ],
 })
-  export class AppModule {}
+export class AppModule {}
