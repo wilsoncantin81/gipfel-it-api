@@ -486,6 +486,11 @@ export class AssetsService {
       include: { client: true, assetType: true },
     });
 
+    // Obtener nombre del cliente del primer activo
+    const clientName = assets.length > 0 && assets[0].client?.businessName
+      ? assets[0].client.businessName
+      : null;
+
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Activos');
 
@@ -570,6 +575,6 @@ export class AssetsService {
     });
 
     const buffer = await workbook.xlsx.writeBuffer();
-    return buffer as any;
+    return { buffer, clientName } as any;
   }
 }
