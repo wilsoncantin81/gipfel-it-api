@@ -8,6 +8,7 @@ import { TicketsModule } from './tickets/tickets.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { ReportsModule } from './reports/reports.module';
 import { AssetTypesModule } from './asset-types/asset-types.module';
+import { FilesModule } from './files/files.module';
 
 @Module({
     imports: [
@@ -20,6 +21,7 @@ import { AssetTypesModule } from './asset-types/asset-types.module';
           DashboardModule,
             AssetTypesModule,
           ReportsModule,
+            FilesModule,
         ],
 })
   export class AppModule {}
