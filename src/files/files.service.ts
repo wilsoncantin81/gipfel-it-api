@@ -65,7 +65,7 @@ export class FilesService {
       if (!file) throw new Error('File not found');
 
       await this.connectFTP();
-      const buffer = await this.ftp.downloadTo(Buffer.alloc(0), `/${file.storageName}`);
+      const chunks = []; await this.ftp.downloadTo(new (require("stream").Writable)({ write(chunk, enc, cb) { chunks.push(chunk); cb(); } }), `/${file.storageName}`); const buffer = Buffer.concat(chunks);
 
       return {
         filename: file.filename,
@@ -101,3 +101,4 @@ export class FilesService {
     });
   }
 }
+
