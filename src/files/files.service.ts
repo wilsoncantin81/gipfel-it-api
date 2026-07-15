@@ -1,44 +1,91 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
+import { Client } from 'basic-ftp';
 import * as path from 'path';
-import * as fs from 'fs';
 
 @Injectable()
 export class FilesService {
-  constructor(private prisma: PrismaService) {}
+  private ftp: Client;
 
-  async uploadFile(file: Express.Multer.File, entityType: string, entityId: string, uploadedById?: string) {
-    const ext = path.extname(file.originalname).toLowerCase();
-    const uniqueName = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
-    const uploadDir = path.join(process.cwd(), 'uploads', entityType, entityId);
-    fs.mkdirSync(uploadDir, { recursive: true });
-    fs.writeFileSync(path.join(uploadDir, uniqueName), file.buffer);
-    const fileUrl = `/uploads/${entityType}/${entityId}/${uniqueName}`;
-    return this.prisma.attachment.create({
-      data: {
-        entityType: entityType.toUpperCase() as any,
-        entityId,
-        fileName: file.originalname,
-        fileUrl,
-        fileType: file.mimetype,
-        fileSize: file.size,
-        uploadedById: uploadedById || undefined,
-      },
+  constructor(private prisma: PrismaService) {
+    this.ftp = new Client();
+  }
+
+  private async connectFTP() {
+    if (!this.ftp.closed) return;
+    await this.ftp.access({
+      host: 'ftp.grupogipfel.com',
+      user: 'uploads@grupogipfel.com',
+      password: process.env.FTP_PASSWORD || '',
+      port: 21,
     });
   }
 
-  async getFiles(entityType: string, entityId: string) {
-    return this.prisma.attachment.findMany({
-      where: { entityType: entityType.toUpperCase() as any, entityId },
-      orderBy: { createdAt: 'desc' },
-    });
+  async saveAssetFiles(assetId: string, files: Express.Multer.File[]) {
+    const savedFiles = [];
+
+    try {
+      await this.connectFTP();
+
+      for (const file of files) {
+        const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(7)}${path.extname(file.originalname)}`;
+
+        // Subir a SiteGround
+        await this.ftp.uploadFrom(file.buffer, `/public_html/uploads/${uniqueName}`);
+
+        // Crear registro en BD
+        const dbFile = await this.prisma.assetFile.create({
+          data: {
+            assetId,
+            filename: file.originalname,
+            storageName: uniqueName,
+            mimetype: file.mimetype,
+            size: file.size,
+            fileUrl: `https://www.grupogipfel.com/uploads/${uniqueName}`,
+            uploadedAt: new Date(),
+          },
+        });
+
+        savedFiles.push({
+          id: dbFile.id,
+          filename: dbFile.filename,
+          size: dbFile.size,
+          fileUrl: dbFile.fileUrl,
+          uploadedAt: dbFile.uploadedAt,
+        });
+      }
+    } catch (error) {
+      throw new Error(`Error uploading files: ${error.message}`);
+    } finally {
+      await this.ftp.close();
+    }
+
+    return savedFiles;
   }
 
-  async deleteFile(id: string) {
-    const file = await this.prisma.attachment.findUnique({ where: { id } });
-    if (!file) return null;
-    const localPath = path.join(process.cwd(), file.fileUrl);
-    if (fs.existsSync(localPath)) fs.unlinkSync(localPath);
-    return this.prisma.attachment.delete({ where: { id } });
+  async deleteFile(fileId: string) {
+    const file = await this.prisma.assetFile.findUnique({ where: { id: fileId } });
+
+    if (file) {
+      try {
+        await this.connectFTP();
+        // Eliminar del FTP
+        await this.ftp.remove(`/public_html/uploads/${file.storageName}`);
+      } catch (error) {
+        console.error('Error deleting file from FTP:', error);
+      } finally {
+        await this.ftp.close();
+      }
+
+      // Eliminar registro de BD
+      await this.prisma.assetFile.delete({ where: { id: fileId } });
+    }
+  }
+
+  async getAssetFiles(assetId: string) {
+    return this.prisma.assetFile.findMany({
+      where: { assetId },
+      orderBy: { uploadedAt: 'desc' },
+    });
   }
 }
