@@ -47,6 +47,24 @@ const storage = memoryStorage();
           return await this.filesService.getReportFiles(reportId);
     }
 
+  @Post('ticket/:ticketId')
+    @UseInterceptors(FilesInterceptor('files', 10, { storage }))
+    async uploadTicketFiles(
+          @Param('ticketId') ticketId: string,
+          @UploadedFiles() files: Express.Multer.File[]
+        ) {
+          if (!files || files.length === 0) {
+                  throw new BadRequestException('No files provided');
+          }
+          const savedFiles = await this.filesService.saveTicketFiles(ticketId, files);
+          return { success: true, files: savedFiles };
+    }
+
+  @Get('ticket/:ticketId')
+    async getTicketFiles(@Param('ticketId') ticketId: string) {
+          return await this.filesService.getTicketFiles(ticketId);
+    }
+
   @Delete(':fileId')
     async deleteFile(@Param('fileId') fileId: string) {
           return await this.filesService.deleteFile(fileId);
