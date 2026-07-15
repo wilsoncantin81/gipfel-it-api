@@ -104,6 +104,7 @@ model Asset {
   reportAssets    ReportAsset[]
   tickets         Ticket[]
   alerts          Alert[]
+  files AssetFile[]
   @@index([clientId])
   @@map("assets")
 }
