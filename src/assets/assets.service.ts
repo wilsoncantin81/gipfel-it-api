@@ -486,29 +486,36 @@ export class AssetsService {
       include: { client: true, assetType: true },
     });
 
-    // Encontrar máximo número de componentes de notas para crear columnas dinámicas
-    let maxNoteComponents = 0;
-    assets.forEach(a => {
-      if (a.notes) {
-        const parts = a.notes.split('|').length;
-        if (parts > maxNoteComponents) maxNoteComponents = parts;
-      }
-    });
-
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Activos');
 
     // Encabezados base
-    const baseHeaders = ['Código', 'Nombre', 'Marca', 'Modelo', 'Serial', 'Tipo', 'Cliente', 'Estado', 'Ubicación', 'IP', 'MAC', 'Fecha Compra', 'Garantía', 'Próx Mant.', 'Responsable'];
+    const baseHeaders = ['Código', 'Nombre', 'Marca', 'Modelo', 'Serial', 'Tipo', 'Cliente', 'Estado', 'Ubicación', 'IP', 'MAC', 'Fecha Compra', 'Garantía', 'Próx Mant.', 'Responsable', 'Proveedor', 'Usuario Asignado'];
 
-    // Agregar encabezados dinámicos para notas
-    const noteHeaders = maxNoteComponents > 0 ?['CPU', 'RAM', 'Disco', 'SO', 'Programas', 'AnyDesk', 'Clave usuario', 'Monitor'].slice(0, maxNoteComponents) : ['Notas'];
-    const allHeaders = [...baseHeaders, ...noteHeaders];
+    // Compilar todos los campos dinámicos de todos los tipos de activos
+    const dynamicFieldsSet = new Set<string>();
+    assets.forEach(a => {
+      if (a.assetType?.fieldSchema && typeof a.assetType.fieldSchema === 'object') {
+        const schema = a.assetType.fieldSchema as any;
+        if (Array.isArray(schema)) {
+          schema.forEach((field: any) => {
+            if (field.name) dynamicFieldsSet.add(field.name);
+          });
+        } else if (schema.fields && Array.isArray(schema.fields)) {
+          schema.fields.forEach((field: any) => {
+            if (field.name) dynamicFieldsSet.add(field.name);
+          });
+        }
+      }
+    });
+
+    const dynamicHeaders = Array.from(dynamicFieldsSet).sort();
+    const allHeaders = [...baseHeaders, ...dynamicHeaders];
 
     worksheet.columns = allHeaders.map((h, i) => ({
       header: h,
-      key: i < baseHeaders.length ? baseHeaders[i].toLowerCase().replace(' ', '') : `nota${i - baseHeaders.length + 1}`,
-      width: h.includes('Nota') ? 20 : 15,
+      key: h.toLowerCase().replace(/\s+/g, '_').replace(/[áéíóú]/g, x => ({á:'a',é:'e',í:'i',ó:'o',ú:'u'}[x])),
+      width: 18,
     }));
 
     // Estilo encabezados
@@ -518,10 +525,7 @@ export class AssetsService {
 
     // Datos
     assets.forEach(a => {
-      const noteParts = a.notes ? a.notes.split('|').map(n => n.trim()) : [];
-      const notesPadded = [...noteParts, ...Array(maxNoteComponents - noteParts.length).fill('')];
-
-      const rowData = {
+      const rowData: any = {
         código: a.code || '',
         nombre: a.name || '',
         marca: a.brand || '',
@@ -537,12 +541,18 @@ export class AssetsService {
         garantía: a.warrantyUntil ? new Date(a.warrantyUntil).toLocaleDateString('es-CO') : '',
         próxmant: a.nextMaintenance ? new Date(a.nextMaintenance).toLocaleDateString('es-CO') : '',
         responsable: a.responsible || '',
+        proveedor: (a as any).supplier || '',
+        usuario_asignado: (a as any).assignedUser || '',
       };
 
-      // Agregar notas divididas
-      notesPadded.forEach((note, i) => {
-        rowData[`nota${i + 1}`] = note;
-      });
+      // Agregar campos dinámicos desde dynFields
+      if (a.dynFields && typeof a.dynFields === 'object') {
+        const dynFields = a.dynFields as any;
+        Object.keys(dynFields).forEach(key => {
+          const headerKey = key.toLowerCase().replace(/\s+/g, '_').replace(/[áéíóú]/g, x => ({á:'a',é:'e',í:'i',ó:'o',ú:'u'}[x]));
+          rowData[headerKey] = dynFields[key] || '';
+        });
+      }
 
       worksheet.addRow(rowData);
     });
