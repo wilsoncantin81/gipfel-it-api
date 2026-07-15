@@ -17,13 +17,17 @@ export class MaintenanceService {
     ]);
     return { data, total };
   }
-  async findByAsset(assetId: string) {
-    return this.prisma.maintenanceRecord.findMany({
-      where: { assetId },
-      include: { technician: { select: { id: true, name: true } } },
-      orderBy: { date: 'desc' },
-    });
-  }
+    async findByAsset(assetId: string, clientId?: string) {
+          if (clientId) {
+                  const asset = await this.prisma.asset.findUnique({ where: { id: assetId }, select: { clientId: true } });
+                  if (!asset || asset.clientId !== clientId) return [];
+          }
+          return this.prisma.maintenanceRecord.findMany({
+                  where: { assetId },
+                  include: { technician: { select: { id: true, name: true } } },
+                  orderBy: { date: 'desc' },
+          });
+    }
   async create(dto: any) {
     const record = await this.prisma.maintenanceRecord.create({
       data: {
