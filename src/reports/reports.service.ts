@@ -245,16 +245,25 @@ export class ReportsService {
       assets.forEach((ra: any, ri: number) => {
         const a = ra.asset;
         const rh = 16;
+        if (y + rh + 40 > 820) { doc.addPage(); y = 40; }
         doc.rect(margin, y, cw, rh).fill(ri % 2 === 0 ? white : lightGray).stroke('#DDDDDD');
         tx = margin;
-        [a?.name || '–', a?.assetType?.name || '–', `${a?.brand || ''} ${a?.model || ''}`.trim() || '–', a?.serial || '–'].forEach((v, i) => {
+        [a?.name || '-', a?.assetType?.name || '-', `${a?.brand || ''} ${a?.model || ''}`.trim() || '-', a?.serial || '-'].forEach((v, i) => {
           doc.fillColor(darkGray).fontSize(7.5).font('Helvetica').text(v, tx + 4, y + 4, { width: cols[i] - 8 });
           tx += cols[i];
         });
         y += rh;
+        if (ra.workDetail) {
+          const wLabel = `Trabajo realizado: ${ra.workDetail}`;
+          const wh = Math.max(doc.heightOfString(wLabel, { width: cw - 16 }) + 10, 18);
+          if (y + wh + 40 > 820) { doc.addPage(); y = 40; }
+          doc.rect(margin, y, cw, wh).fill('#EAF2FB').stroke('#DDDDDD');
+          doc.fillColor(darkGray).fontSize(7).font('Helvetica').text(wLabel, margin + 8, y + 5, { width: cw - 16 });
+          y += wh;
+        }
       });
       y += 5;
-    }
+      
 
     // ── SIGNATURES ───────────────────────────────────────
     const sigH = 100; // total height needed for signatures
