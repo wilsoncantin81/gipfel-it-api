@@ -30,15 +30,14 @@ export class FilesService {
       for (const file of files) {
         const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(7)}${path.extname(file.originalname)}`;
         const fileStream = Readable.from(file.buffer);
-        await this.ftp.uploadFrom(fileStream, `/uploads/${uniqueName}`);
-        const dbFile = await this.prisma.assetFile.create({
+        await this.ftp.uploadFrom(fileStream, `/${uniqueName}`);        const dbFile = await this.prisma.assetFile.create({
           data: {
             assetId,
             filename: file.originalname,
             storageName: uniqueName,
             mimetype: file.mimetype,
             size: file.size,
-            fileUrl: `https://www.grupogipfel.com/uploads/${uniqueName}`,
+            fileUrl: `https://www.grupogipfel.com/${uniqueName}`,
             uploadedAt: new Date(),
           },
         });
@@ -57,7 +56,7 @@ export class FilesService {
       const file = await this.prisma.assetFile.findUnique({ where: { id: fileId } });
       if (!file) throw new Error('File not found');
       await this.connectFTP();
-      await this.ftp.remove(`/uploads/${file.storageName}`);
+      await this.ftp.remove(`/${file.storageName}`);
       await this.prisma.assetFile.delete({ where: { id: fileId } });
       return { success: true };
     } catch (error) {
