@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+﻿import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import * as ExcelJS from 'exceljs';
+import { encrypt } from '../common/crypto.util';
 
 @Injectable()
 export class AssetsService {
@@ -54,6 +55,15 @@ export class AssetsService {
         model: createAssetDto.model,
         serial: createAssetDto.serial,
         location: createAssetDto.location,
+        supplier: createAssetDto.supplier,
+        assignedUser: createAssetDto.assignedUser,
+        responsible: createAssetDto.responsible,
+        ipAddress: createAssetDto.ipAddress,
+        macAddress: createAssetDto.macAddress,
+        remoteAccess: createAssetDto.remoteAccess,
+        notes: createAssetDto.notes,
+        extraFields: createAssetDto.extraFields ?? {},
+        passwordEnc: createAssetDto.password ? encrypt(createAssetDto.password) : undefined,
         purchaseDate: createAssetDto.purchaseDate ? new Date(createAssetDto.purchaseDate) : null,
         warrantyUntil: createAssetDto.warrantyUntil ? new Date(createAssetDto.warrantyUntil) : null,
         nextMaintenance: createAssetDto.nextMaintenance ? new Date(createAssetDto.nextMaintenance) : null,
@@ -75,6 +85,15 @@ export class AssetsService {
         model: updateAssetDto.model,
         serial: updateAssetDto.serial,
         location: updateAssetDto.location,
+        supplier: updateAssetDto.supplier,
+        assignedUser: updateAssetDto.assignedUser,
+        responsible: updateAssetDto.responsible,
+        ipAddress: updateAssetDto.ipAddress,
+        macAddress: updateAssetDto.macAddress,
+        remoteAccess: updateAssetDto.remoteAccess,
+        notes: updateAssetDto.notes,
+        extraFields: updateAssetDto.extraFields ?? undefined,
+        ...(updateAssetDto.password ? { passwordEnc: encrypt(updateAssetDto.password) } : {}),
         purchaseDate: updateAssetDto.purchaseDate ? new Date(updateAssetDto.purchaseDate) : null,
         warrantyUntil: updateAssetDto.warrantyUntil ? new Date(updateAssetDto.warrantyUntil) : null,
         nextMaintenance: updateAssetDto.nextMaintenance ? new Date(updateAssetDto.nextMaintenance) : null,
@@ -486,7 +505,6 @@ export class AssetsService {
       include: { client: true, assetType: true },
     });
 
-    // Obtener nombre del cliente del primer activo
     const clientName = assets.length > 0 && assets[0].client?.businessName
       ? assets[0].client.businessName
       : null;
@@ -494,10 +512,8 @@ export class AssetsService {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Activos');
 
-    // Encabezados base
     const baseHeaders = ['código', 'nombre', 'marca', 'modelo', 'serial', 'tipo', 'cliente', 'estado', 'ubicación', 'ip', 'mac', 'fecha_compra', 'garantía', 'próx_mant', 'responsable', 'proveedor', 'usuario_asignado'];
 
-    // Extraer todos los nombres de campos desde las notas (formato: "CAMPO: valor | CAMPO2: valor2")
     const dynamicFieldsSet = new Set<string>();
     assets.forEach(a => {
       if (a.notes) {
@@ -521,12 +537,10 @@ export class AssetsService {
       width: 18,
     }));
 
-    // Estilo encabezados
     worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
     worksheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF002668' } };
     worksheet.getRow(1).alignment = { horizontal: 'center', vertical: 'middle' };
 
-    // Datos
     assets.forEach(a => {
       const rowData: any = {
         código: a.code || '',
@@ -548,7 +562,6 @@ export class AssetsService {
         usuario_asignado: (a as any).assignedUser || '',
       };
 
-      // Extraer campos dinámicos desde las notas
       if (a.notes) {
         const parts = a.notes.split('|');
         parts.forEach(part => {
@@ -565,7 +578,6 @@ export class AssetsService {
       worksheet.addRow(rowData);
     });
 
-    // Alinear datos
     worksheet.eachRow((row, rowNumber) => {
       row.eachCell((cell) => {
         if (rowNumber > 1) {
