@@ -20,20 +20,25 @@ export class AssetsController {
       const buffer = await this.service.exportExcel(q);
 
       // Obtener nombre del cliente
-      let clientName = 'activos';
-      if (q.clientId) {
-        const client = await this.prisma.client.findUnique({
-          where: { id: q.clientId },
-          select: { businessName: true },
-        });
-        if (client?.businessName) {
-          clientName = `activos_${client.businessName.replace(/\s+/g, '_')}`;
+      let filename = 'activos.xlsx';
+      try {
+        if (q.clientId) {
+          const client = await this.prisma.client.findUnique({
+            where: { id: q.clientId },
+          });
+          if (client?.businessName) {
+            const sanitizedName = client.businessName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+            filename = `activos_${sanitizedName}.xlsx`;
+          }
         }
+      } catch (err) {
+        // Si hay error obteniendo el cliente, usa el nombre por defecto
+        filename = 'activos.xlsx';
       }
 
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Length', buffer.length);
-      res.setHeader('Content-Disposition', `attachment; filename="${clientName}.xlsx"`);
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
