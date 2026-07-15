@@ -11,10 +11,15 @@ export class ReportsController {
   @Post() create(@Body() dto: any) { return this.service.create(dto); }
   @Post(':id/signature') saveSignature(@Param('id') id: string, @Body() body: any) { return this.service.saveSignature(id, body.signatureUrl); }
   @Get(':id/pdf') async pdf(@Param('id') id: string, @Res() res: Response) {
-    const r = await this.service.findOne(id);
-    res.setHeader('Content-Type','text/html');
-    res.setHeader('Content-Disposition',`attachment; filename="${r.reportNumber}.html"`);
-    res.send(this.service.buildHtml(r));
+        try {
+                const [buffer, r] = await Promise.all([this.service.getPDF(id), this.service.findOne(id)]);
+                const safeName = (r?.reportNumber || id).replace(/[^a-zA-Z0-9_-]/g, '_');
+                res.setHeader('Content-Type', 'application/pdf');
+                res.setHeader('Content-Disposition', `attachment; filename="${safeName}.pdf"`);
+                res.send(buffer);
+        } catch (error) {
+                res.status(500).json({ error: 'Error generating report PDF' });
+        }
   }
   @Post(':id/send') sendEmail(@Param('id') id: string) { return this.service.sendEmail(id); }
 }
