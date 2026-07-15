@@ -21,5 +21,5 @@ export class ReportsController {
                 res.status(500).json({ error: 'Error generating report PDF' });
         }
   }
-  @Post(':id/send') sendEmail(@Param('id') id: string) { return this.service.sendEmail(id); }
+@Post(':id/send') sendEmail(@Param('id') id: string, @Body() body: any) { return this.service.sendEmail(id, body?.email, body?.cc); }
 }
