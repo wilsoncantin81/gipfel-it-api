@@ -173,4 +173,37 @@ export class DashboardService {
     }));
     return wb.xlsx.writeBuffer();
   }
-}
+  async getClientSummary(clientId: string) {
+        const now = new Date();
+        const in90 = new Date(now.getTime() + 90*86400000);
+        const in30 = new Date(now.getTime() + 30*86400000);
+        const [totalAssets, activeAssets, openTickets, reportsCount, warrantyExpiring, maintDue, recentActivity, recentReports] = await Promise.all([
+                this.prisma.asset.count({ where: { clientId } }),
+                this.prisma.asset.count({ where: { clientId, status: 'ACTIVO' } }),
+                this.prisma.ticket.count({ where: { clientId, status: { not: 'CERRADO' } } }),
+                this.prisma.serviceReport.count({ where: { clientId } }),
+                this.prisma.asset.count({ where: { clientId, warrantyUntil: { lte: in90, gte: now }, status: 'ACTIVO' } }),
+                this.prisma.asset.count({ where: { clientId, nextMaintenance: { lte: in30, gte: now }, status: 'ACTIVO' } }),
+                this.prisma.maintenanceRecord.findMany({
+                          where: { asset: { clientId } },
+                          take: 10,
+                          orderBy: { createdAt: 'desc' },
+                          include: { asset: { include: { assetType: true } }, technician: { select: { name: true } } },
+                }),
+                this.prisma.serviceReport.findMany({
+                          where: { clientId },
+                          take: 5,
+                          orderBy: { date: 'desc' },
+                          select: { id: true, reportNumber: true, date: true, serviceType: true },
+                }),
+              ]);
+        return {
+                assets: { total: totalAssets, active: activeAssets },
+                tickets: { open: openTickets },
+                reports: { total: reportsCount, recent: recentReports },
+                alerts: { warrantyExpiring, maintenanceDue: maintDue },
+                recentActivity,
+        };
+  }
+  
+  }
