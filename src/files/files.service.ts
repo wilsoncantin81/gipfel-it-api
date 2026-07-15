@@ -11,6 +11,18 @@ export class FilesService {
     this.ftp = new Client();
   }
 
+  private getRemotePath(filename: string) {
+    const base = process.env.FTP_REMOTE_PATH || '/';
+    const normalized = base.endsWith('/') ? base : `${base}/`;
+    return `${normalized}${filename}`;
+  }
+
+  private getPublicUrl(filename: string) {
+    const base = process.env.FTP_BASE_URL || 'https://www.grupogipfel.com/uploads';
+    const normalized = base.endsWith('/') ? base.slice(0, -1) : base;
+    return `${normalized}/${filename}`;
+  }
+
   private async connectFTP() {
     if (!this.ftp.closed) return;
     await this.ftp.access({
@@ -29,7 +41,7 @@ export class FilesService {
       
       for (const file of files) {
         const fileStream = Readable.from(file.buffer);
-        await this.ftp.uploadFrom(fileStream, `/public_html/uploads/${file.originalname}`);
+        await this.ftp.uploadFrom(fileStream, this.getRemotePath(file.originalname));
         
         const dbFile = await this.prisma.assetFile.create({
           data: {
@@ -38,7 +50,7 @@ export class FilesService {
             storageName: file.originalname,
             mimetype: file.mimetype,
             size: file.size,
-            fileUrl: `https://www.grupogipfel.com/uploads/${file.originalname}`,
+            fileUrl: this.getPublicUrl(file.originalname),
             uploadedAt: new Date(),
           },
         });
@@ -67,7 +79,7 @@ export class FilesService {
     
     try {
       await this.connectFTP();
-      await this.ftp.remove(`/public_html/uploads/${file.storageName}`);
+      await this.ftp.remove(this.getRemotePath(file.storageName));
     } catch (error) {
       console.error('Error deleting from FTP:', error);
     } finally {
