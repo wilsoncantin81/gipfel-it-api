@@ -32,8 +32,7 @@ export class FilesService {
         const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(7)}${path.extname(file.originalname)}`;
 
         // Subir a SiteGround
-        await this.ftp.uploadFrom(fReadable.from(file.buffer)buffer, `/public_html/uploads/${uniqueName}`);
-
+        await this.ftp.uploadFrom(Readable.from(file.buffer), `/public_html/uploads/${uniqueName}`);
         // Crear registro en BD
         const dbFile = await this.prisma.assetFile.create({
           data: {
