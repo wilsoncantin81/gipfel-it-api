@@ -226,7 +226,7 @@ export class ReportsService {
     }
 
     if (rpt.conclusion) {
-      section('RECOMENDACIONES');
+      section('CONCLUSIÓN');
       textBlock(rpt.conclusion);
     }
 
