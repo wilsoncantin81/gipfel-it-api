@@ -369,9 +369,10 @@ enum TicketStatus {
   POR_CONFIRMACION
   PENDIENTE_WILSON
   POR_FACTURACION
+  PENDIENTE_POR_PAGO
   CERRADO
 }
-
+  
 enum CommissionStatus {
   PENDIENTE
   PAGADA
