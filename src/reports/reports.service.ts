@@ -104,7 +104,7 @@ export class ReportsService {
                             reportNumber,
                             clientId: data.clientId,
                             technicianId: data.technicianId || undefined,
-                            date: new Date(data.date),
+                            date: this.parseDate(data.date),
                             serviceType: data.serviceType,
                             description: data.description,
                             observations: observations || undefined,
