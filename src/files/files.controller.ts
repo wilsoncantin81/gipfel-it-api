@@ -1,4 +1,5 @@
-﻿import { Controller, Post, Delete, Param, UseGuards, UseInterceptors, UploadedFiles, BadRequestException, Get } from '@nestjs/common';
+﻿import { Controller, Post, Delete, Param, UseGuards, UseInterceptors, UploadedFiles, BadRequestException, Get, Res } from '@nestjs/common';
+import { Response } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
@@ -26,6 +27,18 @@ export class FilesController {
   @Get('asset/:assetId')
   async getAssetFiles(@Param('assetId') assetId: string) {
     return this.filesService.getAssetFiles(assetId);
+  }
+
+  @Get('download/:fileId')
+  async downloadFile(@Param('fileId') fileId: string, @Res() res: Response) {
+    try {
+      const fileData = await this.filesService.downloadFile(fileId);
+      res.setHeader('Content-Disposition', `attachment; filename="${fileData.filename}"`);
+      res.setHeader('Content-Type', fileData.mimetype);
+      res.send(fileData.buffer);
+    } catch (error) {
+      res.status(404).json({ error: 'File not found' });
+    }
   }
 
   @Delete(':fileId')

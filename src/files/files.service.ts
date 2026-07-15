@@ -2,7 +2,7 @@
 import { PrismaService } from '../common/prisma.service';
 import { Client } from 'basic-ftp';
 import * as path from 'path';
-import { Readable } from 'stream';
+import { Readable, Writable } from 'stream';
 
 @Injectable()
 export class FilesService {
@@ -50,6 +50,34 @@ export class FilesService {
       if (!this.ftp.closed) await this.ftp.close();
     }
     return savedFiles;
+  }
+
+  async downloadFile(fileId: string) {
+    const file = await this.prisma.assetFile.findUnique({ where: { id: fileId } });
+    if (!file) throw new Error('File not found');
+
+    try {
+      await this.connectFTP();
+      const chunks: Buffer[] = [];
+
+      await this.ftp.downloadTo(
+        new Writable({
+          write(chunk: Buffer, encoding: string, callback: (error?: Error | null) => void) {
+            chunks.push(chunk);
+            callback();
+          }
+        }),
+        `/${file.storageName}`
+      );
+
+      return {
+        filename: file.filename,
+        mimetype: file.mimetype,
+        buffer: Buffer.concat(chunks),
+      };
+    } finally {
+      if (!this.ftp.closed) await this.ftp.close();
+    }
   }
 
   async deleteFile(fileId: string) {
