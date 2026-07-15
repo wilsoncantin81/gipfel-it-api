@@ -1,12 +1,11 @@
 import { Module } from '@nestjs/common';
-import { MulterModule } from '@nestjs/platform-express';
-import { memoryStorage } from 'multer';
-import { FilesController } from './files.controller';
 import { FilesService } from './files.service';
+import { FilesController } from './files.controller';
+import { PrismaService } from '../common/prisma.service';
+
 @Module({
-  imports: [MulterModule.register({ storage: memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } })],
   controllers: [FilesController],
-  providers: [FilesService],
+  providers: [FilesService, PrismaService],
   exports: [FilesService],
 })
 export class FilesModule {}
