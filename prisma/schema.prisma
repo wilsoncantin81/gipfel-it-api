@@ -1,339 +1,380 @@
 generator client {
   provider = "prisma-client-js"
 }
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 model User {
-  id           String   @id @default(uuid())
-  name         String
-  email        String   @unique
-  passwordHash String   @map("password_hash")
-  role         UserRole @default(TECNICO)
-  isActive     Boolean  @default(true) @map("is_active")
-  permissions   Json?    @default("[]")
-phone String?
-whatsappApiKey String? @map("whatsapp_api_key")
-  clientId         String?  @map("client_id")
-  client           Client?  @relation(fields: [clientId], references: [id])
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id                 String               @id @default(dbgenerated("(gen_random_uuid())::text"))
+  name               String
+  email              String               @unique
+  passwordHash       String               @map("password_hash")
+  role               UserRole             @default(TECNICO)
+  isActive           Boolean              @default(true) @map("is_active")
+  createdAt          DateTime             @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt          DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  permissions        Json?                @default("[\"dashboard\", \"clientes\", \"activos\", \"mantenimiento\", \"reportes\", \"tickets\", \"tipos\", \"usuarios\", \"financiero\", \"comisiones\"]")
+  clientId           String?              @map("client_id")
+  phone              String?
+  whatsappApiKey     String?              @map("whatsapp_api_key")
+  activityLogs       ActivityLog[]
+  commissions        Commission[]
   maintenanceRecords MaintenanceRecord[]
-  reports      ServiceReport[]
-  assignedTickets Ticket[] @relation("AssignedTechnician")
-  activityLogs ActivityLog[]
-  commissions  Commission[]
+  reports            ServiceReport[]
+  ticket_status_logs ticket_status_logs[]
+  assignedTickets    Ticket[]             @relation("AssignedTechnician")
+  client             Client?              @relation(fields: [clientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
   @@map("users")
-}
-enum UserRole {
-  ADMIN
-  TECNICO
-  CLIENTE
 }
 
 model Client {
-  id           String       @id @default(uuid())
-  businessName String       @map("business_name")
-  nit          String?      @unique
+  id           String          @id @default(dbgenerated("(gen_random_uuid())::text"))
+  businessName String          @map("business_name")
+  nit          String?         @unique
+  email        String?
+  phone        String?
   address      String?
   branch       String?
   city         String?
-  phone        String?
-  contactName  String?      @map("contact_name")
-  email        String?
-  logoUrl      String?      @map("logo_url")
-  status       ClientStatus @default(ACTIVO)
-  createdAt    DateTime     @default(now()) @map("created_at")
-  updatedAt    DateTime     @updatedAt @map("updated_at")
+  contactName  String?         @map("contact_name")
+  logoUrl      String?         @map("logo_url")
+  status       ClientStatus    @default(ACTIVO)
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt    DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  alerts       Alert[]
   assets       Asset[]
   reports      ServiceReport[]
   tickets      Ticket[]
-  alerts       Alert[]
+  users        User[]
+
   @@map("clients")
-  users            User[]
-}
-enum ClientStatus {
-ACTIVO
-INACTIVO
 }
 
 model AssetType {
-  id          String   @id @default(uuid())
-  name        String
-  icon        String   @default("box")
-  fieldSchema Json     @default("[]") @map("field_schema")
+  id          String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  name        String   @unique
+  description String?
+  icon        String?
   isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  fieldSchema Json?    @default("[]") @map("field_schema")
   assets      Asset[]
+
   @@map("asset_types")
 }
 
 model Asset {
-  id              String      @id @default(uuid())
-  clientId        String      @map("client_id")
-  assetTypeId     String      @map("asset_type_id")
-  code            String?     @unique
-  name            String
-  brand           String?
-  model           String?
-  serial          String?
-  purchaseDate    DateTime?   @map("purchase_date")
-  warrantyUntil   DateTime?   @map("warranty_until")
-  supplier        String?
-  assignedUser    String?     @map("assigned_user")
-  responsible     String?
-  passwordEnc     String?     @map("password_enc")
-  remoteAccess    String?     @map("remote_access")
-  ipAddress       String?     @map("ip_address")
-  macAddress      String?     @map("mac_address")
-  location        String?
-  status          AssetStatus @default(ACTIVO)
-  dynFields       Json        @default("{}") @map("dyn_fields")
-  extraFields     Json        @default("[]") @map("extra_fields")
-  nextMaintenance DateTime?   @map("next_maintenance")
-  qrCodeUrl       String?     @map("qr_code_url")
-  notes           String?
-  createdAt       DateTime    @default(now()) @map("created_at")
-  updatedAt       DateTime    @updatedAt @map("updated_at")
-  client          Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  assetType       AssetType   @relation(fields: [assetTypeId], references: [id])
-  maintenanceRecords MaintenanceRecord[]
-  attachments     Attachment[]
-  reportAssets    ReportAsset[]
-  tickets         Ticket[]
-  alerts          Alert[]
-  files AssetFile[]
-  @@index([clientId])
+  id                         String              @id @default(dbgenerated("(gen_random_uuid())::text"))
+  clientId                   String              @map("client_id")
+  assetTypeId                String              @map("asset_type_id")
+  name                       String
+  brand                      String?
+  model                      String?
+  serial                     String?             @unique(map: "assets_serial_number_key")
+  code                       String?             @unique(map: "assets_inventory_code_key")
+  purchaseDate               DateTime?           @map("purchase_date") @db.Timestamp(6)
+  warrantyUntil              DateTime?           @map("warranty_until") @db.Timestamp(6)
+  location                   String?
+  status                     AssetStatus         @default(ACTIVO)
+  notes                      String?
+  passwordEnc                String?             @map("password_enc")
+  nextMaintenance            DateTime?           @map("next_maintenance") @db.Timestamp(6)
+  maintenance_frequency_days Int?
+  createdAt                  DateTime            @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt                  DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  supplier                   String?
+  assignedUser               String?             @map("assigned_user")
+  responsible                String?
+  ipAddress                  String?             @map("ip_address")
+  macAddress                 String?             @map("mac_address")
+  remoteAccess               String?             @map("remote_access")
+  extraFields                Json?               @default("{}") @map("extra_fields")
+  dynFields                  Json?               @map("dyn_fields")
+  qrCodeUrl                  String?             @map("qr_code_url")
+  files                      AssetFile[]
+  alerts                     Alert[]
+  assetType                  AssetType           @relation(fields: [assetTypeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  client                     Client              @relation(fields: [clientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  maintenanceRecords         MaintenanceRecord[]
+  reportAssets               ReportAsset[]
+  tickets                    Ticket[]
+
   @@map("assets")
-}
-enum AssetStatus {
-ACTIVO
-EN_MANTENIMIENTO
-DADO_DE_BAJA
 }
 
 model MaintenanceRecord {
-  id           String          @id @default(uuid())
+  id           String          @id @default(dbgenerated("(gen_random_uuid())::text"))
   assetId      String          @map("asset_id")
   technicianId String?         @map("technician_id")
-  date         DateTime
   type         MaintenanceType
   description  String
   workDone     String?         @map("work_done")
+  nextMaint    DateTime?       @map("next_maintenance") @db.Timestamp(6)
+  cost         Float?
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamp(6)
+  date         DateTime?
   parts        Json?
   timeSpent    Float?          @map("time_spent_hours")
-  nextMaint    DateTime?       @map("next_maintenance")
   reportId     String?         @map("report_id")
-  createdAt    DateTime        @default(now()) @map("created_at")
-  asset        Asset           @relation(fields: [assetId], references: [id], onDelete: Cascade)
-  technician   User?           @relation(fields: [technicianId], references: [id])
-  @@index([assetId])
+  asset        Asset           @relation(fields: [assetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  technician   User?           @relation(fields: [technicianId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
   @@map("maintenance_records")
-}
-enum MaintenanceType {
-PREVENTIVO
-CORRECTIVO
-INSTALACION
-CONFIGURACION
 }
 
 model Attachment {
-  id           String         @id @default(uuid())
+  id           String         @id @default(dbgenerated("(gen_random_uuid())::text"))
   entityType   AttachmentType @map("entity_type")
   entityId     String         @map("entity_id")
   fileName     String         @map("file_name")
   fileUrl      String         @map("file_url")
   fileType     String?        @map("file_type")
   fileSize     Int?           @map("file_size")
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamp(6)
   uploadedById String?        @map("uploaded_by")
-  createdAt    DateTime       @default(now()) @map("created_at")
-  asset        Asset?         @relation(fields: [entityId], references: [id])
-  @@index([entityType, entityId])
+
   @@map("attachments")
-}
-enum AttachmentType {
-ASSET
-MAINTENANCE
-REPORT
-TICKET
 }
 
 model ServiceReport {
-  id           String      @id @default(uuid())
-  reportNumber String      @unique @map("report_number")
-  clientId     String      @map("client_id")
-  technicianId String?     @map("technician_id")
-  date         DateTime
-  serviceType  ServiceType @map("service_type")
-  description  String
-  observations String?
-  conclusion   String?
-  timeUsed     Float?      @map("time_used_hours")
-  signatureUrl String?     @map("signature_url")
-  pdfUrl       String?     @map("pdf_url")
-  sentAt       DateTime?   @map("sent_at")
-  createdAt    DateTime    @default(now()) @map("created_at")
-  updatedAt    DateTime    @updatedAt @map("updated_at")
-  client       Client      @relation(fields: [clientId], references: [id])
-  technician   User?       @relation(fields: [technicianId], references: [id])
-  assets       ReportAsset[]
-  tickets      Ticket[]
-  files        AssetFile[]
-  @@index([clientId])
+  id               String        @id @default(dbgenerated("(gen_random_uuid())::text"))
+  clientId         String        @map("client_id")
+  technicianId     String?       @map("technician_id")
+  reportNumber     String        @unique @map("report_number")
+  date             DateTime      @db.Timestamp(6)
+  serviceType      ServiceType   @map("service_type")
+  description      String
+  work_done        String?
+  recommendations  String?
+  client_signature String?
+  tech_signature   String?
+  email_sent       Boolean       @default(false)
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamp(6)
+  received_by      String?
+  observations     String?
+  conclusion       String?
+  timeUsed         Float?        @map("time_used_hours")
+  signatureUrl     String?       @map("signature_url")
+  pdfUrl           String?       @map("pdf_url")
+  sentAt           DateTime?     @map("sent_at")
+  updatedAt        DateTime?     @default(now()) @updatedAt @map("updated_at")
+  assets           ReportAsset[]
+  files            AssetFile[]
+  client           Client        @relation(fields: [clientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  technician       User?         @relation(fields: [technicianId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tickets          Ticket[]
+
   @@map("service_reports")
 }
+
 model ReportAsset {
-  reportId    String        @map("report_id")
-  assetId     String        @map("asset_id")
-  workDetail  String?       @map("work_detail")
-  report      ServiceReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  asset       Asset         @relation(fields: [assetId], references: [id])
-  @@id([reportId, assetId])
+  id         String        @id @default(dbgenerated("(gen_random_uuid())::text"))
+  reportId   String        @map("report_id")
+  assetId    String        @map("asset_id")
+  workDetail String?       @map("work_detail")
+  asset      Asset         @relation(fields: [assetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  report     ServiceReport @relation(fields: [reportId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
   @@map("report_assets")
-}
-enum ServiceType {
-EN_SITIO
-REMOTO
-TELEFONICO
 }
 
 model Ticket {
-  id             String       @id @default(uuid())
-  ticketNumber   String       @unique @map("ticket_number")
-  clientId       String       @map("client_id")
-  assetId        String?      @map("asset_id")
-  assignedToId   String?      @map("assigned_to")
-  reportId       String?      @map("report_id")
-  title          String
-  description    String?
-  conclusion     String?
-  priority       Priority     @default(MEDIA)
-  status         TicketStatus @default(NUEVO)
-  invoiceNumber  String?      @map("invoice_number")
-closureType   String?     @map("closure_type")
-  salePrice      Float?       @map("sale_price")
-  totalCost      Float?       @map("total_cost")
-  utility        Float?
-  slaHours       Int?         @map("sla_hours")
-  resolvedAt     DateTime?    @map("resolved_at")
-  createdAt      DateTime     @default(now()) @map("created_at")
-  updatedAt      DateTime     @updatedAt @map("updated_at")
-  client         Client       @relation(fields: [clientId], references: [id])
-  asset          Asset?       @relation(fields: [assetId], references: [id])
-  assignedTo     User?        @relation("AssignedTechnician", fields: [assignedToId], references: [id])
-  report         ServiceReport? @relation(fields: [reportId], references: [id])
-  tasks          TicketTask[]
-  expenses       TicketExpense[]
-  commission     Commission?
+  id                 String               @id @default(dbgenerated("(gen_random_uuid())::text"))
+  ticketNumber       String               @unique @map("ticket_number")
+  clientId           String               @map("client_id")
+  assetId            String?              @map("asset_id")
+  assignedToId       String?              @map("assigned_to")
+  reportId           String?              @map("report_id")
+  title              String
+  description        String?
+  conclusion         String?
+  priority           Priority             @default(MEDIA)
+  status             TicketStatus         @default(NUEVO)
+  invoiceNumber      String?              @map("invoice_number")
+  salePrice          Float?               @map("sale_price")
+  totalCost          Float?               @map("total_cost")
+  utility            Float?
+  slaHours           Int?                 @map("sla_hours")
+  resolvedAt         DateTime?            @map("resolved_at") @db.Timestamp(6)
+  createdAt          DateTime             @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt          DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  closureType        String?              @default("NORMAL") @map("closure_type")
+  commission         Commission?
+  expenses           TicketExpense[]
+  ticket_status_logs ticket_status_logs[]
+  tasks              TicketTask[]
+  asset              Asset?               @relation(fields: [assetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  assignedTo         User?                @relation("AssignedTechnician", fields: [assignedToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  client             Client               @relation(fields: [clientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  report             ServiceReport?       @relation(fields: [reportId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
   @@index([clientId])
   @@map("tickets")
 }
-enum Priority {
-BAJA
-MEDIA
-ALTA
-CRITICA
-}
-enum TicketStatus {
-NUEVO
-EN_EJECUCION
-POR_CONFIRMACION
-PENDIENTE_WILSON
-POR_FACTURACION
-CERRADO
-}
 
 model TicketTask {
-  id        String   @id @default(uuid())
+  id        String   @id @default(dbgenerated("(gen_random_uuid())::text"))
   ticketId  String   @map("ticket_id")
   title     String
   done      Boolean  @default(false)
   order     Int      @default(0)
-  createdAt DateTime @default(now()) @map("created_at")
-  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
   @@map("ticket_tasks")
 }
 
 model TicketExpense {
-  id             String   @id @default(uuid())
-  ticketId       String   @map("ticket_id")
-  date           DateTime
-  description    String
-  supplier       String?
-  supplierInvoice String? @map("supplier_invoice")
-  quantity       Float    @default(1)
-  unitPrice      Float    @map("unit_price")
-  total          Float
-  createdAt      DateTime @default(now()) @map("created_at")
-  ticket         Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  id              String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  ticketId        String   @map("ticket_id")
+  date            DateTime @db.Timestamp(6)
+  description     String
+  supplier        String?
+  supplierInvoice String?  @map("supplier_invoice")
+  quantity        Float    @default(1)
+  unitPrice       Float    @map("unit_price")
+  total           Float
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  ticket          Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
   @@map("ticket_expenses")
 }
 
 model Commission {
-  id          String           @id @default(uuid())
-  ticketId    String           @unique @map("ticket_id")
-  userId      String           @map("user_id")
-  amount      Float
-  percentage  Float            @default(10)
-  status      CommissionStatus @default(PENDIENTE)
-  paidAt      DateTime?        @map("paid_at")
-  notes       String?
-  createdAt   DateTime         @default(now()) @map("created_at")
-  ticket      Ticket           @relation(fields: [ticketId], references: [id])
-  user        User             @relation(fields: [userId], references: [id])
+  id         String           @id @default(dbgenerated("(gen_random_uuid())::text"))
+  ticketId   String           @unique @map("ticket_id")
+  userId     String           @map("user_id")
+  amount     Float
+  percentage Float            @default(10)
+  status     CommissionStatus @default(PENDIENTE)
+  paidAt     DateTime?        @map("paid_at") @db.Timestamp(6)
+  notes      String?
+  createdAt  DateTime         @default(now()) @map("created_at") @db.Timestamp(6)
+  ticket     Ticket           @relation(fields: [ticketId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user       User             @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
   @@map("commissions")
-}
-enum CommissionStatus {
-PENDIENTE
-PAGADA
 }
 
 model Alert {
-  id        String    @id @default(uuid())
+  id        String    @id @default(dbgenerated("(gen_random_uuid())::text"))
   clientId  String?   @map("client_id")
   assetId   String?   @map("asset_id")
   type      AlertType
   message   String
-  dueDate   DateTime? @map("due_date")
+  dueDate   DateTime? @map("due_date") @db.Timestamp(6)
   isRead    Boolean   @default(false) @map("is_read")
-  createdAt DateTime  @default(now()) @map("created_at")
-  client    Client?   @relation(fields: [clientId], references: [id])
-  asset     Asset?    @relation(fields: [assetId], references: [id])
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  asset     Asset?    @relation(fields: [assetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  client    Client?   @relation(fields: [clientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
   @@map("alerts")
-}
-enum AlertType {
-GARANTIA
-MANTENIMIENTO
-TICKET
 }
 
 model ActivityLog {
-  id         String   @id @default(uuid())
+  id         String   @id @default(dbgenerated("(gen_random_uuid())::text"))
   userId     String?  @map("user_id")
   action     String
   entityType String?  @map("entity_type")
   entityId   String?  @map("entity_id")
   ipAddress  String?  @map("ip_address")
   meta       Json?
-  createdAt  DateTime @default(now()) @map("created_at")
-  user       User?    @relation(fields: [userId], references: [id])
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  user       User?    @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
   @@map("activity_logs")
 }
+
 model AssetFile {
-  id          String   @id @default(cuid())
+  id          String         @id @default(cuid())
   assetId     String?
-  asset       Asset?   @relation(fields: [assetId], references: [id], onDelete: Cascade)
   reportId    String?
-  report      ServiceReport? @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  filename    String   // nombre original
-  storageName String   // nombre en servidor
+  filename    String
+  storageName String
   mimetype    String
   size        Int
-  fileUrl     String   // URL pública (https://grupogipfel.com/uploads/...)
-  uploadedAt  DateTime @default(now())
-
+  fileUrl     String
+  uploadedAt  DateTime       @default(now())
+  asset       Asset?         @relation(fields: [assetId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  report      ServiceReport? @relation(fields: [reportId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   @@index([assetId])
   @@index([reportId])
+}
+model ticket_status_logs {
+  id         String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  ticket_id  String
+  status     String
+  changed_at DateTime @default(now()) @db.Timestamp(6)
+  changed_by String?
+  notes      String?
+  users      User?    @relation(fields: [changed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tickets    Ticket   @relation(fields: [ticket_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+enum UserRole {
+  ADMIN
+  TECNICO
+  CLIENTE
+}
+
+enum ClientStatus {
+  ACTIVO
+  INACTIVO
+}
+
+enum AssetStatus {
+  ACTIVO
+  EN_MANTENIMIENTO
+  DADO_DE_BAJA
+}
+
+enum MaintenanceType {
+  PREVENTIVO
+  CORRECTIVO
+  INSTALACION
+  CONFIGURACION
+}
+
+enum AttachmentType {
+  ASSET
+  MAINTENANCE
+  REPORT
+  TICKET
+}
+
+enum ServiceType {
+  EN_SITIO
+  REMOTO
+  TELEFONICO
+}
+
+enum Priority {
+  BAJA
+  MEDIA
+  ALTA
+  CRITICA
+}
+
+enum TicketStatus {
+  NUEVO
+  EN_EJECUCION
+  POR_CONFIRMACION
+  PENDIENTE_WILSON
+  POR_FACTURACION
+  CERRADO
+}
+
+enum CommissionStatus {
+  PENDIENTE
+  PAGADA
+}
+
+enum AlertType {
+  GARANTIA
+  MANTENIMIENTO
+  TICKET
 }
