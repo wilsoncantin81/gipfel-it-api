@@ -12,8 +12,7 @@ import { Injectable } from '@nestjs/common';
           const prompt = `Mejora la redacción del siguiente texto de un ${type || 'reporte técnico'} para que sea claro, profesional y conciso, en español. No agregues información que no esté presente en el texto original. Responde únicamente con el texto mejorado, sin comentarios ni comillas adicionales.\n\n${context ? `Contexto: ${context}\n\n` : ''}Texto original:\n${text}`;
           try {
                   const response = await fetch(
-                            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`,
-                    {
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent`,                    {
                                 method: 'POST',
                                 headers: {
                                               'x-goog-api-key': apiKey,
