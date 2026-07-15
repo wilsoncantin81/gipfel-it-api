@@ -22,8 +22,12 @@ import { ReportsService } from './reports.service';
           return r;
     }
 
-  @Post() create(@Body() dto: any) { return this.service.create(dto); }
-
+    @Post()
+    create(@Body() dto: any, @Request() req: any) {
+          if (req.user?.role === 'CLIENTE') throw new ForbiddenException('No autorizado');
+          return this.service.create(dto);
+    }
+  
   @Put(':id')
     update(@Param('id') id: string, @Body() dto: any, @Request() req: any) {
           const role = req.user?.role;
