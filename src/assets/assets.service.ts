@@ -492,20 +492,18 @@ export class AssetsService {
     // Encabezados base
     const baseHeaders = ['código', 'nombre', 'marca', 'modelo', 'serial', 'tipo', 'cliente', 'estado', 'ubicación', 'ip', 'mac', 'fecha_compra', 'garantía', 'próx_mant', 'responsable', 'proveedor', 'usuario_asignado'];
 
-    // Compilar todos los campos dinámicos de todos los tipos de activos
+    // Extraer todos los nombres de campos desde las notas (formato: "CAMPO: valor | CAMPO2: valor2")
     const dynamicFieldsSet = new Set<string>();
     assets.forEach(a => {
-      if (a.assetType?.fieldSchema && typeof a.assetType.fieldSchema === 'object') {
-        const schema = a.assetType.fieldSchema as any;
-        if (Array.isArray(schema)) {
-          schema.forEach((field: any) => {
-            if (field.name) dynamicFieldsSet.add(field.name);
-          });
-        } else if (schema.fields && Array.isArray(schema.fields)) {
-          schema.fields.forEach((field: any) => {
-            if (field.name) dynamicFieldsSet.add(field.name);
-          });
-        }
+      if (a.notes) {
+        const parts = a.notes.split('|');
+        parts.forEach(part => {
+          const match = part.trim().match(/^([^:]+):/);
+          if (match) {
+            const fieldName = match[1].trim().toLowerCase().replace(/\s+/g, '_');
+            dynamicFieldsSet.add(fieldName);
+          }
+        });
       }
     });
 
@@ -545,11 +543,17 @@ export class AssetsService {
         usuario_asignado: (a as any).assignedUser || '',
       };
 
-      // Agregar campos dinámicos desde dynFields
-      if (a.dynFields && typeof a.dynFields === 'object') {
-        const dynFields = a.dynFields as any;
-        Object.keys(dynFields).forEach(key => {
-          rowData[key] = dynFields[key] || '';
+      // Extraer campos dinámicos desde las notas
+      if (a.notes) {
+        const parts = a.notes.split('|');
+        parts.forEach(part => {
+          const trimmedPart = part.trim();
+          const colonIndex = trimmedPart.indexOf(':');
+          if (colonIndex > 0) {
+            const fieldName = trimmedPart.substring(0, colonIndex).trim().toLowerCase().replace(/\s+/g, '_');
+            const fieldValue = trimmedPart.substring(colonIndex + 1).trim();
+            rowData[fieldName] = fieldValue;
+          }
         });
       }
 
