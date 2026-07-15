@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, Query, UseGuards, Res, Header } from '@nestjs/common';
+﻿import { Controller, Get, Post, Put, Delete, Param, Body, Query, UseGuards, Res, Header } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Response } from 'express';
@@ -20,7 +20,6 @@ export class AssetsController {
       const result = await this.service.exportExcel(q);
       const buffer = result.buffer;
 
-      // Usar el nombre del cliente devuelto por el servicio
       let filename = 'activos.xlsx';
       if (result.clientName) {
         const sanitizedName = result.clientName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
@@ -56,9 +55,13 @@ export class AssetsController {
   @Get(':id/pdf')
   async getAssetPDF(@Param('id') id: string, @Res() res: Response) {
     try {
-      const html = await this.service.getAssetPDF(id);
+      const [html, asset] = await Promise.all([
+        this.service.getAssetPDF(id),
+        this.prisma.asset.findUnique({ where: { id }, select: { code: true } }),
+      ]);
+      const safeName = (asset?.code || id).replace(/[^a-zA-Z0-9_-]/g, '_');
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename="hoja_vida_${id}.html"`);
+      res.setHeader('Content-Disposition', `attachment; filename="hoja_vida_${safeName}.html"`);
       res.send(html);
     } catch (error) {
       res.status(500).json({ error: 'Error generating asset PDF' });
