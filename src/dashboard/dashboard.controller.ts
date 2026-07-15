@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, Query, UseGuards, Res, Header } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, Query, UseGuards, Res, Header, Request, ForbiddenException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Response } from 'express';
@@ -13,6 +13,12 @@ import { DashboardService } from './dashboard.service';
 
   @Get('kpis')
    getKPIs() { return this.service.getKPIs(); }
+
+   @Get('client-summary')
+   getClientSummary(@Request() req: any) {
+        if (req.user?.role !== 'CLIENTE') throw new ForbiddenException('Solo disponible para clientes');
+        return this.service.getClientSummary(req.user.clientId);
+   }
 
   @Get('activity')
    getActivity(@Query('limit') limit: string) { return this.service.getRecentActivity(Number(limit) || 10); }
