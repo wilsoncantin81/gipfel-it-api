@@ -180,6 +180,7 @@ model ServiceReport {
   technician   User?       @relation(fields: [technicianId], references: [id])
   assets       ReportAsset[]
   tickets      Ticket[]
+  files        AssetFile[]
   @@index([clientId])
   @@map("service_reports")
 }
@@ -322,14 +323,17 @@ model ActivityLog {
 }
 model AssetFile {
   id          String   @id @default(cuid())
-  assetId     String
-  asset       Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  assetId     String?
+  asset       Asset?   @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  reportId    String?
+  report      ServiceReport? @relation(fields: [reportId], references: [id], onDelete: Cascade)
   filename    String   // nombre original
   storageName String   // nombre en servidor
   mimetype    String
   size        Int
   fileUrl     String   // URL pública (https://grupogipfel.com/uploads/...)
   uploadedAt  DateTime @default(now())
- 
+
   @@index([assetId])
+  @@index([reportId])
 }
