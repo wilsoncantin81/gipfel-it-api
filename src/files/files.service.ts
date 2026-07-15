@@ -1,8 +1,8 @@
 ﻿import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { Client } from 'basic-ftp';
-import * as path from 'path';
 import { Readable } from 'stream';
+import * as path from 'path';
 
 @Injectable()
 export class FilesService {
@@ -24,12 +24,17 @@ export class FilesService {
 
   async saveAssetFiles(assetId: string, files: Express.Multer.File[]) {
     const savedFiles = [];
+    
     try {
       await this.connectFTP();
+      
       for (const file of files) {
         const fileStream = Readable.from(file.buffer);
+        
+        // Subir a FTP en /uploads/
         await this.ftp.uploadFrom(fileStream, `/uploads/${file.originalname}`);
-
+        
+        // Guardar en BD
         const dbFile = await this.prisma.assetFile.create({
           data: {
             assetId,
@@ -41,7 +46,7 @@ export class FilesService {
             uploadedAt: new Date(),
           },
         });
-
+        
         savedFiles.push(dbFile);
       }
     } catch (error) {
@@ -49,25 +54,32 @@ export class FilesService {
     } finally {
       if (!this.ftp.closed) await this.ftp.close();
     }
+    
     return savedFiles;
+  }
+
+  async getAssetFiles(assetId: string) {
+    return await this.prisma.assetFile.findMany({
+      where: { assetId },
+      orderBy: { uploadedAt: 'desc' },
+    });
   }
 
   async deleteFile(fileId: string) {
     const file = await this.prisma.assetFile.findUnique({ where: { id: fileId } });
-    if (file) {
-      try {
-        await this.connectFTP();
-        await this.ftp.remove(`/uploads/${file.storageName}`);
-      } catch (error) {
-        console.error('Error:', error);
-      } finally {
-        if (!this.ftp.closed) await this.ftp.close();
-      }
-      await this.prisma.assetFile.delete({ where: { id: fileId } });
+    
+    if (!file) throw new Error('File not found');
+    
+    try {
+      await this.connectFTP();
+      await this.ftp.remove(`/uploads/${file.storageName}`);
+    } catch (error) {
+      console.error('Error deleting from FTP:', error);
+    } finally {
+      if (!this.ftp.closed) await this.ftp.close();
     }
-  }
-
-  async getAssetFiles(assetId: string) {
-    return this.prisma.assetFile.findMany({ where: { assetId }, orderBy: { uploadedAt: 'desc' } });
+    
+    await this.prisma.assetFile.delete({ where: { id: fileId } });
+    return { success: true };
   }
 }
