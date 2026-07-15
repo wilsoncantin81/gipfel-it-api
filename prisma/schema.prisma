@@ -319,3 +319,16 @@ model ActivityLog {
   user       User?    @relation(fields: [userId], references: [id])
   @@map("activity_logs")
 }
+model AssetFile {
+  id          String   @id @default(cuid())
+  assetId     String
+  asset       Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  filename    String   // nombre original
+  storageName String   // nombre en servidor
+  mimetype    String
+  size        Int
+  fileUrl     String   // URL pública (https://grupogipfel.com/uploads/...)
+  uploadedAt  DateTime @default(now())
+ 
+  @@index([assetId])
+}
