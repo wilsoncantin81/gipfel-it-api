@@ -27,29 +27,22 @@ export class FilesService {
     try {
       await this.connectFTP();
       for (const file of files) {
-        const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(7)}${path.extname(file.originalname)}`;
         const fileStream = Readable.from(file.buffer);
-        await this.ftp.uploadFrom(fileStream, `/public_html/uploads/${uniqueName}`);
+        await this.ftp.uploadFrom(fileStream, `/${file.originalname}`);
 
         const dbFile = await this.prisma.assetFile.create({
           data: {
             assetId,
             filename: file.originalname,
-            storageName: uniqueName,
+            storageName: file.originalname,
             mimetype: file.mimetype,
             size: file.size,
-            fileUrl: `https://www.grupogipfel.com/uploads/${uniqueName}`,
+            fileUrl: `https://www.grupogipfel.com/${file.originalname}`,
             uploadedAt: new Date(),
           },
         });
 
-        savedFiles.push({
-          id: dbFile.id,
-          filename: dbFile.filename,
-          size: dbFile.size,
-          fileUrl: dbFile.fileUrl,
-          uploadedAt: dbFile.uploadedAt,
-        });
+        savedFiles.push(dbFile);
       }
     } catch (error) {
       throw new Error(`Error uploading files: ${error.message}`);
@@ -59,34 +52,14 @@ export class FilesService {
     return savedFiles;
   }
 
-  async downloadFile(fileId: string) {
-    try {
-      const file = await this.prisma.assetFile.findUnique({ where: { id: fileId } });
-      if (!file) throw new Error('File not found');
-
-      await this.connectFTP();
-      const chunks = []; await this.ftp.downloadTo(new (require("stream").Writable)({ write(chunk, enc, cb) { chunks.push(chunk); cb(); } }), `/${file.storageName}`); const buffer = Buffer.concat(chunks);
-
-      return {
-        filename: file.filename,
-        mimetype: file.mimetype,
-        buffer: buffer,
-      };
-    } catch (error) {
-      throw new Error(`Error downloading file: ${error.message}`);
-    } finally {
-      if (!this.ftp.closed) await this.ftp.close();
-    }
-  }
-
   async deleteFile(fileId: string) {
     const file = await this.prisma.assetFile.findUnique({ where: { id: fileId } });
     if (file) {
       try {
         await this.connectFTP();
-        await this.ftp.remove(`/public_html/uploads/${file.storageName}`);
+        await this.ftp.remove(`/${file.storageName}`);
       } catch (error) {
-        console.error('Error deleting file from FTP:', error);
+        console.error('Error deleting:', error);
       } finally {
         if (!this.ftp.closed) await this.ftp.close();
       }
@@ -101,4 +74,3 @@ export class FilesService {
     });
   }
 }
-
