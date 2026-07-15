@@ -1,19 +1,38 @@
-import { Controller, Post, Get, Delete, Param, UseInterceptors, UploadedFiles, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Delete, Param, UseGuards, UseInterceptors, UploadedFiles, BadRequestException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { FilesInterceptor } from '@nestjs/platform-express';
-import { ApiTags, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 import { FilesService } from './files.service';
-@ApiTags('Archivos') @ApiBearerAuth() @UseGuards(AuthGuard('jwt')) @Controller('files')
+import { PrismaService } from '../common/prisma.service';
+
+const storage = diskStorage({
+  destination: './uploads',
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
+  },
+});
+
+@UseGuards(AuthGuard('jwt'))
+@Controller('files')
 export class FilesController {
-  constructor(private readonly service: FilesService) {}
-  @Post(':entityType/:entityId')
-  @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FilesInterceptor('files', 10))
-  async upload(@Param('entityType') et: string, @Param('entityId') eid: string, @UploadedFiles() files: Express.Multer.File[], @Request() req: any) {
-    return Promise.all(files.map(f => this.service.uploadFile(f, et, eid, req.user?.sub)));
+  constructor(private readonly filesService: FilesService, private readonly prisma: PrismaService) {}
+
+  @Post('asset/:assetId')
+  @UseInterceptors(FilesInterceptor('files', 10, { storage }))
+  async uploadAssetFiles(@Param('assetId') assetId: string, @UploadedFiles() files: Express.Multer.File[]) {
+    if (!files || files.length === 0) {
+      throw new BadRequestException('No files provided');
+    }
+
+    const result = await this.filesService.saveAssetFiles(assetId, files);
+    return { success: true, files: result };
   }
-  @Get(':entityType/:entityId')
-  getFiles(@Param('entityType') et: string, @Param('entityId') eid: string) { return this.service.getFiles(et, eid); }
-  @Delete(':id')
-  deleteFile(@Param('id') id: string) { return this.service.deleteFile(id); }
+
+  @Delete(':fileId')
+  async deleteFile(@Param('fileId') fileId: string) {
+    await this.filesService.deleteFile(fileId);
+    return { success: true };
+  }
 }
