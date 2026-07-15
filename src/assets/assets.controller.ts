@@ -17,23 +17,14 @@ export class AssetsController {
   @Get('export/excel')
   async exportExcel(@Query() q: any, @Res() res: Response) {
     try {
-      const buffer = await this.service.exportExcel(q);
+      const result = await this.service.exportExcel(q);
+      const buffer = result.buffer;
 
-      // Obtener nombre del cliente
+      // Usar el nombre del cliente devuelto por el servicio
       let filename = 'activos.xlsx';
-      try {
-        if (q.clientId) {
-          const client = await this.prisma.client.findUnique({
-            where: { id: q.clientId },
-          });
-          if (client?.businessName) {
-            const sanitizedName = client.businessName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-            filename = `activos_${sanitizedName}.xlsx`;
-          }
-        }
-      } catch (err) {
-        // Si hay error obteniendo el cliente, usa el nombre por defecto
-        filename = 'activos.xlsx';
+      if (result.clientName) {
+        const sanitizedName = result.clientName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+        filename = `activos_${sanitizedName}.xlsx`;
       }
 
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
