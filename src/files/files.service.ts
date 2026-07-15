@@ -35,36 +35,31 @@ import { Readable } from 'stream';
 
   async saveAssetFiles(assetId: string, files: Express.Multer.File[]) {
         const savedFiles = [];
-
-      try {
-              await this.connectFTP();
-
-          for (const file of files) {
-                    const fileStream = Readable.from(file.buffer);
-                    const storageName = `${Date.now()}-${file.originalname}`;
-                    await this.ftp.uploadFrom(fileStream, this.getRemotePath(storageName));
-
-                const dbFile = await this.prisma.assetFile.create({
-                            data: {
-                                          assetId,
-                                          filename: file.originalname,
-                                          storageName,
-                                          mimetype: file.mimetype,
-                                          size: file.size,
-                                          fileUrl: this.getPublicUrl(storageName),
-                                          uploadedAt: new Date(),
-                            },
-                });
-
-                savedFiles.push(dbFile);
-          }
-      } catch (error) {
-              throw new Error(`Error uploading files: ${error.message}`);
-      } finally {
-              if (!this.ftp.closed) await this.ftp.close();
-      }
-
-      return savedFiles;
+        try {
+                await this.connectFTP();
+                for (const file of files) {
+                          const fileStream = Readable.from(file.buffer);
+                          const storageName = `${Date.now()}-${file.originalname}`;
+                          await this.ftp.uploadFrom(fileStream, this.getRemotePath(storageName));
+                          const dbFile = await this.prisma.assetFile.create({
+                                      data: {
+                                                    assetId,
+                                                    filename: file.originalname,
+                                                    storageName,
+                                                    mimetype: file.mimetype,
+                                                    size: file.size,
+                                                    fileUrl: this.getPublicUrl(storageName),
+                                                    uploadedAt: new Date(),
+                                      },
+                          });
+                          savedFiles.push(dbFile);
+                }
+        } catch (error) {
+                throw new Error(`Error uploading files: ${error.message}`);
+        } finally {
+                if (!this.ftp.closed) await this.ftp.close();
+        }
+        return savedFiles;
   }
 
   async getAssetFiles(assetId: string) {
@@ -76,36 +71,31 @@ import { Readable } from 'stream';
 
   async saveReportFiles(reportId: string, files: Express.Multer.File[]) {
         const savedFiles = [];
-
-      try {
-              await this.connectFTP();
-
-          for (const file of files) {
-                    const fileStream = Readable.from(file.buffer);
-                    const storageName = `${Date.now()}-${file.originalname}`;
-                    await this.ftp.uploadFrom(fileStream, this.getRemotePath(storageName));
-
-                const dbFile = await this.prisma.assetFile.create({
-                            data: {
-                                          reportId,
-                                          filename: file.originalname,
-                                          storageName,
-                                          mimetype: file.mimetype,
-                                          size: file.size,
-                                          fileUrl: this.getPublicUrl(storageName),
-                                          uploadedAt: new Date(),
-                            },
-                });
-
-                savedFiles.push(dbFile);
-          }
-      } catch (error) {
-              throw new Error(`Error uploading files: ${error.message}`);
-      } finally {
-              if (!this.ftp.closed) await this.ftp.close();
-      }
-
-      return savedFiles;
+        try {
+                await this.connectFTP();
+                for (const file of files) {
+                          const fileStream = Readable.from(file.buffer);
+                          const storageName = `${Date.now()}-${file.originalname}`;
+                          await this.ftp.uploadFrom(fileStream, this.getRemotePath(storageName));
+                          const dbFile = await this.prisma.assetFile.create({
+                                      data: {
+                                                    reportId,
+                                                    filename: file.originalname,
+                                                    storageName,
+                                                    mimetype: file.mimetype,
+                                                    size: file.size,
+                                                    fileUrl: this.getPublicUrl(storageName),
+                                                    uploadedAt: new Date(),
+                                      },
+                          });
+                          savedFiles.push(dbFile);
+                }
+        } catch (error) {
+                throw new Error(`Error uploading files: ${error.message}`);
+        } finally {
+                if (!this.ftp.closed) await this.ftp.close();
+        }
+        return savedFiles;
   }
 
   async getReportFiles(reportId: string) {
@@ -115,20 +105,54 @@ import { Readable } from 'stream';
         });
   }
 
+  async saveTicketFiles(ticketId: string, files: Express.Multer.File[]) {
+        const savedFiles = [];
+        try {
+                await this.connectFTP();
+                for (const file of files) {
+                          const fileStream = Readable.from(file.buffer);
+                          const storageName = `${Date.now()}-${file.originalname}`;
+                          await this.ftp.uploadFrom(fileStream, this.getRemotePath(storageName));
+                          const dbFile = await this.prisma.assetFile.create({
+                                      data: {
+                                                    ticketId,
+                                                    filename: file.originalname,
+                                                    storageName,
+                                                    mimetype: file.mimetype,
+                                                    size: file.size,
+                                                    fileUrl: this.getPublicUrl(storageName),
+                                                    uploadedAt: new Date(),
+                                      },
+                          });
+                          savedFiles.push(dbFile);
+                }
+        } catch (error) {
+                throw new Error(`Error uploading files: ${error.message}`);
+        } finally {
+                if (!this.ftp.closed) await this.ftp.close();
+        }
+        return savedFiles;
+  }
+
+  async getTicketFiles(ticketId: string) {
+        return await this.prisma.assetFile.findMany({
+                where: { ticketId },
+                orderBy: { uploadedAt: 'desc' },
+        });
+  }
+
   async deleteFile(fileId: string) {
         const file = await this.prisma.assetFile.findUnique({ where: { id: fileId } });
         if (!file) throw new Error('File not found');
-
-      try {
-              await this.connectFTP();
-              await this.ftp.remove(this.getRemotePath(file.storageName));
-      } catch (error) {
-              console.error('Error deleting from FTP:', error);
-      } finally {
-              if (!this.ftp.closed) await this.ftp.close();
-      }
-
-      await this.prisma.assetFile.delete({ where: { id: fileId } });
+        try {
+                await this.connectFTP();
+                await this.ftp.remove(this.getRemotePath(file.storageName));
+        } catch (error) {
+                console.error('Error deleting from FTP:', error);
+        } finally {
+                if (!this.ftp.closed) await this.ftp.close();
+        }
+        await this.prisma.assetFile.delete({ where: { id: fileId } });
         return { success: true };
   }
 }
