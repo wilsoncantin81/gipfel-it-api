@@ -16,11 +16,11 @@ import { Injectable } from '@nestjs/common';
                                       const timeoutId = setTimeout(() => controller.abort(), 12000);
                                       try {
                                                                     const response = await fetch(
-                        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent`,                                                                      
+                        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent`,
                                                                         {
                                                                             method: 'POST',
                                                                                                                     headers: { 'x-goog-api-key': apiKey, 'content-type': 'application/json' },
-                                                                                                                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+                                                                                                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { thinkingConfig: { thinkingBudget: 0 } } }),
                                                                                                                     signal: controller.signal,
                                                                         },
                                                                                                             );
