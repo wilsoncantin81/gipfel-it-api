@@ -48,6 +48,7 @@ import { RolesGuard } from '../auth/roles.guard';
     @Post(':id/expenses') @Roles('ADMIN', 'TECNICO') addExpense(@Param('id') id: string, @Body() dto: any) { return this.service.addExpense(id, dto); }
     @Put('tasks/:taskId/toggle') @Roles('ADMIN', 'TECNICO') toggleTask(@Param('taskId') id: string) { return this.service.toggleTask(id); }
     @Put(':id/status') @Roles('ADMIN', 'TECNICO') updateStatus(@Param('id') id: string, @Body() body: any, @Request() req: any) { return this.service.updateStatus(id, body, req.user?.sub); }
+        @Put(':id/billing') @Roles('ADMIN', 'TECNICO') updateBilling(@Param('id') id: string, @Body() dto: any) { return this.service.updateBilling(id, dto); }
     @Put(':id') @Roles('ADMIN', 'TECNICO') update(@Param('id') id: string, @Body() dto: any) { return this.service.update(id, dto); }
     @Delete('tasks/:taskId') @Roles('ADMIN', 'TECNICO') deleteTask(@Param('taskId') id: string) { return this.service.deleteTask(id); }
     @Delete('expenses/:expenseId') @Roles('ADMIN', 'TECNICO') deleteExpense(@Param('expenseId') id: string) { return this.service.deleteExpense(id); }
