@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException, ConflictException, BadRequestExcepti
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../common/prisma.service';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 
 const ALL_MODULES = ['dashboard','clientes','activos','mantenimiento','reportes','tickets','tipos','usuarios','financiero','comisiones'];
 const CLIENT_MODULES = ['activos', 'tickets', 'reportes', 'mantenimiento', 'dashboard'];
@@ -86,5 +87,16 @@ const CLIENT_MODULES = ['activos', 'tickets', 'reportes', 'mantenimiento', 'dash
 
   async updateStatus(id: string, isActive: boolean) {
         return this.prisma.user.update({ where: { id }, data: { isActive } });
+  }
+  async getDescargasSsoUrl(user: any) {
+      const profile = await this.prisma.user.findUnique({ where: { id: user.sub }, select: { name: true } });
+      const payload = { sub: user.sub, name: profile?.name || user.email, role: user.role, exp: Date.now() + 60000 };
+      const payloadB64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
+      const key = process.env.DESCARGAS_SSO_SECRET;
+      if (!key) throw new Error('DESCARGAS_SSO_SECRET no configurado');
+      const sig = crypto.createHmac('sha256', key).update(payloadB64).digest('base64url');
+      const token = `${payloadB64}.${sig}`;
+      const base = process.env.DESCARGAS_URL || 'https://grupogipfel.com/descargas';
+      return { url: `${base}/index.php?sso=${token}` };
   }
 }
