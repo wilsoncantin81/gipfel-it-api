@@ -66,4 +66,10 @@ import { RolesGuard } from './roles.guard';
     @UseGuards(AuthGuard('jwt'))
     @ApiBearerAuth()
     profile(@Request() req: any) { return this.auth.getProfile(req.user.sub); }
+
+    @Get('descargas-sso')
+    @UseGuards(AuthGuard('jwt'), RolesGuard)
+    @Roles('ADMIN', 'TECNICO')
+    @ApiBearerAuth()
+    descargasSso(@Request() req: any) { return this.auth.getDescargasSsoUrl(req.user); }
 }
