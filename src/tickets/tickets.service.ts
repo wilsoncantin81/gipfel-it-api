@@ -58,8 +58,13 @@ async getExpenseSummary(id: string) {
 }
 
 async create(dto: any) {
-  const count = await this.prisma.ticket.count();
-  const ticketNumber = `TKT-${String(count + 1).padStart(5, '0')}`;
+      const lastTicket = await this.prisma.ticket.findFirst({ orderBy: { ticketNumber: 'desc' }, select: { ticketNumber: true } });
+      let nextNum = 1;
+      if (lastTicket?.ticketNumber) {
+              const m = lastTicket.ticketNumber.match(/(\d+)$/);
+              if (m) nextNum = parseInt(m[1], 10) + 1;
+      }
+      const ticketNumber = `TKT-${String(nextNum).padStart(5, '0')}`;
   const { tasks, ...rest } = dto;
   if (rest.assetId) {
     const asset = await this.prisma.asset.findUnique({ where: { id: rest.assetId } });
