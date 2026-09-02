@@ -173,6 +173,7 @@ import { Readable } from 'stream';
         savedFiles.push({ id, noteId, filename: file.originalname, url, mimeType: file.mimetype, size: file.size });
       }
     } catch (error) {
+      console.error('saveNoteFiles error:', error);
       throw new Error(`Error uploading files: ${error.message}`);
     } finally {
       if (!this.ftp.closed) await this.ftp.close();
