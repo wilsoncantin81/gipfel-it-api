@@ -69,6 +69,7 @@ export class ReportsService {
         if (dto.technicianId !== undefined) data.technicianId = dto.technicianId || null;
         if (dto.assetIds !== undefined) data.assets = { deleteMany: {}, create: (dto.assetIds || []).map((a: any) => ({ assetId: typeof a === 'string' ? a : a.id, workDetail: typeof a === 'object' ? (a.workDetail || undefined) : undefined })) };
         if (dto.receivedBy !== undefined) data.received_by = dto.receivedBy || null;
+        if (dto.signatureUrl !== undefined) data.signatureUrl = dto.signatureUrl || null;
                  const updated = await this.prisma.serviceReport.update({ where: { id }, data });
           const changedFields = Object.keys(data);
           if (changedFields.length > 0) {
