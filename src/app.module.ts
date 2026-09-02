@@ -15,6 +15,7 @@ import { AlertsModule } from './alerts/alerts.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { AiController } from './ai/ai.controller';
 import { ClientNotesController } from './client-notes/client-notes.controller';
+import { PrismaService } from './common/prisma.service';
 
 @Module({
   imports: [
@@ -34,5 +35,6 @@ import { ClientNotesController } from './client-notes/client-notes.controller';
     DashboardModule,
   ],
   controllers: [AiController, ClientNotesController],
+  providers: [PrismaService],
 })
 export class AppModule {}
