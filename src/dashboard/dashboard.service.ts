@@ -14,7 +14,7 @@ export class DashboardService {
       openTickets, criticalTickets, pendingWilson,
       reportsThisMonth, warrantyExpiring, maintDue, unreadAlerts,
       salesThisMonth, pendingCommissions,
-      ticketsNuevo, ticketsEnEjecucion, ticketsPorConfirmacion, ticketsPorFacturacion, ticketsCerrado, ticketsPendientePorPago, toCollect] = await Promise.all([
+      ticketsNuevo, ticketsEnEjecucion, ticketsPorConfirmacion, ticketsPorFacturacion, ticketsCerrado, ticketsPendientePorPago, toCollect, pendientePorPagoValue] = await Promise.all([
       this.prisma.client.count(),
       this.prisma.client.count({ where: { status: 'ACTIVO' } }),
       this.prisma.asset.count(),
@@ -35,6 +35,7 @@ export class DashboardService {
       this.prisma.ticket.count({ where: { status: 'CERRADO' } }),
       this.prisma.ticket.count({ where: { status: 'PENDIENTE_POR_PAGO' } }),
       this.prisma.ticket.aggregate({ where: { status: { in: ['POR_FACTURACION', 'PENDIENTE_POR_PAGO'] } }, _sum: { salePrice: true } }),
+      this.prisma.ticket.aggregate({ where: { status: 'PENDIENTE_POR_PAGO' }, _sum: { salePrice: true } }),
     ]);
     return {
       clients: { total: totalClients, active: activeClients },
@@ -47,6 +48,7 @@ export class DashboardService {
         utilityThisMonth: salesThisMonth._sum.utility || 0,
         pendingCommissions: pendingCommissions._sum.amount || 0,
         totalToCollect: toCollect._sum.salePrice || 0,
+        pendientePorPagoValue: pendientePorPagoValue._sum.salePrice || 0,
       },
       ticketsByStatus: {
         NUEVO: ticketsNuevo,
