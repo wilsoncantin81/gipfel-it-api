@@ -154,7 +154,7 @@ model ServiceReport {
   tech_signature   String?
   email_sent       Boolean       @default(false)
   createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamp(6)
-  received_by      String?
+  receivedBy       String?   @map("received_by")
   observations     String?
   conclusion       String?
   timeUsed         Float?        @map("time_used_hours")

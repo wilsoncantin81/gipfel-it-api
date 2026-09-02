@@ -68,7 +68,7 @@ export class ReportsService {
           if (dto.date !== undefined) data.date = this.parseDate(dto.date);
         if (dto.technicianId !== undefined) data.technicianId = dto.technicianId || null;
         if (dto.assetIds !== undefined) data.assets = { deleteMany: {}, create: (dto.assetIds || []).map((a: any) => ({ assetId: typeof a === 'string' ? a : a.id, workDetail: typeof a === 'object' ? (a.workDetail || undefined) : undefined })) };
-        if (dto.receivedBy !== undefined) data.received_by = dto.receivedBy || null;
+        if (dto.receivedBy !== undefined) data.receivedBy = dto.receivedBy || null;
         if (dto.signatureUrl !== undefined) data.signatureUrl = dto.signatureUrl || null;
                  const updated = await this.prisma.serviceReport.update({ where: { id }, data });
           const changedFields = Object.keys(data);
@@ -115,7 +115,7 @@ export class ReportsService {
                             observations: observations || undefined,
                             conclusion: conclusion || undefined,
                             signatureUrl: signatureUrl || undefined,
-                                                received_by: receivedBy || undefined,
+                                                receivedBy: receivedBy || undefined,
                         assets: assetIds?.length
                                         ? { create: assetIds.map((a: any) => ({ assetId: typeof a === 'string' ? a : a.id, workDetail: typeof a === 'object' ? (a.workDetail || undefined) : undefined })) }
                                         : undefined,
