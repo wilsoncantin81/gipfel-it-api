@@ -69,4 +69,25 @@ const storage = memoryStorage();
     async deleteFile(@Param('fileId') fileId: string) {
           return await this.filesService.deleteFile(fileId);
     }
+  @Post('note/:noteId')
+  @UseInterceptors(FilesInterceptor('files', 10, { storage }))
+  async uploadNoteFiles(
+    @Param('noteId') noteId: string,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
+    if (!files || files.length === 0) throw new BadRequestException('No files provided');
+    const clientId = files[0]?.fieldname || '';
+    return await this.filesService.saveNoteFiles(noteId, clientId, files);
+  }
+
+  @Get('note/:noteId')
+  async getNoteFiles(@Param('noteId') noteId: string) {
+    return await this.filesService.getNoteFiles(noteId);
+  }
+
+  @Delete('note-file/:fileId')
+  async deleteNoteFile(@Param('fileId') fileId: string) {
+    return await this.filesService.deleteNoteFile(fileId);
+  }
+
 }

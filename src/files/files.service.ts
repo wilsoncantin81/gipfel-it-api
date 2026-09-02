@@ -155,4 +155,51 @@ import { Readable } from 'stream';
         await this.prisma.assetFile.delete({ where: { id: fileId } });
         return { success: true };
   }
+
+  async saveNoteFiles(noteId: string, clientId: string, files: Express.Multer.File[]) {
+    const savedFiles = [];
+    try {
+      await this.connectFTP();
+      for (const file of files) {
+        const fileStream = Readable.from(file.buffer);
+        const storageName = `note-${Date.now()}-${file.originalname}`;
+        await this.ftp.uploadFrom(fileStream, this.getRemotePath(storageName));
+        const id = require('crypto').randomUUID();
+        const url = this.getPublicUrl(storageName);
+        await (this.prisma as any).$executeRaw`
+          INSERT INTO client_note_files (id, note_id, client_id, filename, url, mime_type, size)
+          VALUES (${id}, ${noteId}, ${clientId}, ${file.originalname}, ${url}, ${file.mimetype}, ${file.size})
+        `;
+        savedFiles.push({ id, noteId, filename: file.originalname, url, mimeType: file.mimetype, size: file.size });
+      }
+    } catch (error) {
+      throw new Error(`Error uploading files: ${error.message}`);
+    } finally {
+      if (!this.ftp.closed) await this.ftp.close();
+    }
+    return savedFiles;
+  }
+
+  async getNoteFiles(noteId: string) {
+    return (this.prisma as any).$queryRaw`
+      SELECT * FROM client_note_files WHERE note_id = ${noteId} ORDER BY created_at DESC
+    `;
+  }
+
+  async deleteNoteFile(fileId: string) {
+    try {
+      const files: any[] = await (this.prisma as any).$queryRaw`SELECT * FROM client_note_files WHERE id = ${fileId}`;
+      if (files.length > 0) {
+        const storageName = files[0].url.split('/').pop();
+        try {
+          await this.connectFTP();
+          await this.ftp.remove(this.getRemotePath(storageName));
+        } catch {}
+      }
+      await (this.prisma as any).$executeRaw`DELETE FROM client_note_files WHERE id = ${fileId}`;
+    } catch (e) { throw new Error(e.message); }
+    finally { if (!this.ftp.closed) await this.ftp.close(); }
+    return { success: true };
+  }
+
 }
