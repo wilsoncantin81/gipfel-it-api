@@ -383,3 +383,29 @@ enum AlertType {
   MANTENIMIENTO
   TICKET
 }
+
+model ClientNote {
+  id        String           @id @default(uuid())
+  clientId  String           @map("client_id")
+  category  String           @default("General")
+  title     String
+  content   String?
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+  client    Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  files     ClientNoteFile[]
+  @@map("client_notes")
+}
+
+model ClientNoteFile {
+  id        String      @id @default(uuid())
+  noteId    String      @map("note_id")
+  clientId  String?     @map("client_id")
+  filename  String
+  url       String
+  mimeType  String?     @map("mime_type")
+  size      Int?
+  createdAt DateTime    @default(now()) @map("created_at")
+  note      ClientNote  @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  @@map("client_note_files")
+}

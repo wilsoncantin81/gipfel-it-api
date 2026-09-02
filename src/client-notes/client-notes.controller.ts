@@ -12,34 +12,40 @@ export class ClientNotesController {
 
   @Get()
   async findAll(@Param('clientId') clientId: string) {
-    return (this.prisma as any).$queryRaw`
-      SELECT * FROM client_notes WHERE client_id = ${clientId} ORDER BY category, created_at DESC
-    `;
+    return this.prisma.clientNote.findMany({
+      where: { clientId },
+      orderBy: [{ category: 'asc' }, { createdAt: 'desc' }],
+      include: { files: true },
+    });
   }
 
   @Post()
   async create(@Param('clientId') clientId: string, @Body() body: any) {
-    const id = require('crypto').randomUUID();
-    await (this.prisma as any).$executeRaw`
-      INSERT INTO client_notes (id, client_id, category, title, content)
-      VALUES (${id}, ${clientId}, ${body.category || 'General'}, ${body.title}, ${body.content || ''})
-    `;
-    return { id, clientId, ...body };
+    return this.prisma.clientNote.create({
+      data: {
+        clientId,
+        category: body.category || 'General',
+        title: body.title,
+        content: body.content || '',
+      },
+    });
   }
 
   @Put(':id')
   async update(@Param('id') id: string, @Body() body: any) {
-    await (this.prisma as any).$executeRaw`
-      UPDATE client_notes 
-      SET title = ${body.title}, content = ${body.content || ''}, category = ${body.category || 'General'}, updated_at = now()
-      WHERE id = ${id}
-    `;
-    return { id, ...body };
+    return this.prisma.clientNote.update({
+      where: { id },
+      data: {
+        title: body.title,
+        content: body.content || '',
+        category: body.category || 'General',
+      },
+    });
   }
 
   @Delete(':id')
   async remove(@Param('id') id: string) {
-    await (this.prisma as any).$executeRaw`DELETE FROM client_notes WHERE id = ${id}`;
+    await this.prisma.clientNote.delete({ where: { id } });
     return { deleted: true };
   }
 }

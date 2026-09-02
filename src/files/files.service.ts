@@ -164,13 +164,11 @@ import { Readable } from 'stream';
         const fileStream = Readable.from(file.buffer);
         const storageName = `note-${Date.now()}-${file.originalname}`;
         await this.ftp.uploadFrom(fileStream, this.getRemotePath(storageName));
-        const id = require('crypto').randomUUID();
         const url = this.getPublicUrl(storageName);
-        await (this.prisma as any).$executeRaw`
-          INSERT INTO client_note_files (id, note_id, client_id, filename, url, mime_type, size)
-          VALUES (${id}, ${noteId}, ${clientId}, ${file.originalname}, ${url}, ${file.mimetype}, ${file.size})
-        `;
-        savedFiles.push({ id, noteId, filename: file.originalname, url, mimeType: file.mimetype, size: file.size });
+        const dbFile = await (this.prisma as any).clientNoteFile.create({
+          data: { noteId, clientId, filename: file.originalname, url, mimeType: file.mimetype, size: file.size },
+        });
+        savedFiles.push(dbFile);
       }
     } catch (error) {
       console.error('saveNoteFiles error:', error);
@@ -182,24 +180,23 @@ import { Readable } from 'stream';
   }
 
   async getNoteFiles(noteId: string) {
-    return (this.prisma as any).$queryRaw`
-      SELECT * FROM client_note_files WHERE note_id = ${noteId} ORDER BY created_at DESC
-    `;
+    return (this.prisma as any).clientNoteFile.findMany({
+      where: { noteId },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   async deleteNoteFile(fileId: string) {
-    try {
-      const files: any[] = await (this.prisma as any).$queryRaw`SELECT * FROM client_note_files WHERE id = ${fileId}`;
-      if (files.length > 0) {
-        const storageName = files[0].url.split('/').pop();
-        try {
-          await this.connectFTP();
-          await this.ftp.remove(this.getRemotePath(storageName));
-        } catch {}
-      }
-      await (this.prisma as any).$executeRaw`DELETE FROM client_note_files WHERE id = ${fileId}`;
-    } catch (e) { throw new Error(e.message); }
-    finally { if (!this.ftp.closed) await this.ftp.close(); }
+    const file = await (this.prisma as any).clientNoteFile.findUnique({ where: { id: fileId } });
+    if (file) {
+      const storageName = file.url.split('/').pop();
+      try {
+        await this.connectFTP();
+        await this.ftp.remove(this.getRemotePath(storageName));
+      } catch {}
+      finally { if (!this.ftp.closed) await this.ftp.close(); }
+      await (this.prisma as any).clientNoteFile.delete({ where: { id: fileId } });
+    }
     return { success: true };
   }
 
