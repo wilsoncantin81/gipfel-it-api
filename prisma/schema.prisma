@@ -50,6 +50,7 @@ model Client {
   reports      ServiceReport[]
   tickets      Ticket[]
   users        User[]
+  notes        ClientNote[]
 
   @@map("clients")
 }
