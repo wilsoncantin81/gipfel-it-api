@@ -1,5 +1,5 @@
 FROM node:20-slim AS builder
-# Cache bust: 2026-09-02-v1
+# Cache bust: 2026-10-13-v2
 WORKDIR /app
 RUN apt-get update -y && apt-get install -y openssl
 COPY package*.json ./
@@ -17,4 +17,5 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/package.json ./
 EXPOSE 3001
-CMD ["node", "dist/main"]
+# Run db push to ensure schema is up to date, then start app
+CMD ["sh", "-c", "npx prisma db push --skip-generate --accept-data-loss && node dist/main"]
