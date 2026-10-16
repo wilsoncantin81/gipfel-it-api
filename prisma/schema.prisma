@@ -27,6 +27,8 @@ model User {
   ticket_status_logs ticket_status_logs[]
   assignedTickets    Ticket[]             @relation("AssignedTechnician")
   client             Client?              @relation(fields: [clientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  teamNotes          TeamNote[]
+  calendarEvents     CalendarEvent[]
 
   @@map("users")
 }
@@ -409,4 +411,41 @@ model ClientNoteFile {
   createdAt DateTime    @default(now()) @map("created_at")
   note      ClientNote  @relation(fields: [noteId], references: [id], onDelete: Cascade)
   @@map("client_note_files")
+}
+
+model TeamNote {
+  id          String   @id @default(uuid())
+  title       String
+  body        String?
+  category    String   @default("general")
+  authorId    String   @map("author_id")
+  authorName  String   @map("author_name")
+  convertedToTicket Boolean @default(false) @map("converted_to_ticket")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@map("team_notes")
+}
+
+model CalendarEvent {
+  id           String   @id @default(uuid())
+  date         String
+  type         String   @default("otro")
+  title        String
+  techId       String?  @map("tech_id")
+  techName     String?  @map("tech_name")
+  ticketId     String?  @map("ticket_id")
+  ticketNum    String?  @map("ticket_num")
+  ticketLabel  String?  @map("ticket_label")
+  timeStart    String?  @map("time_start")
+  timeEnd      String?  @map("time_end")
+  notes        String?
+  createdById  String   @map("created_by_id")
+  createdByName String  @map("created_by_name")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  createdBy    User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@map("calendar_events")
 }
