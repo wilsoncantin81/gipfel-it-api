@@ -22,14 +22,15 @@ export class TeamNotesController {
 
   @Post()
   async create(@Body() body: any, @Request() req: any) {
-    const user = req.user;
+    const userId = req.user.sub;
+    const dbUser = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true } });
     return this.prisma.teamNote.create({
       data: {
         title: body.title,
         body: body.body || '',
         category: body.category || 'general',
-        authorId: user.id,
-        authorName: user.name,
+        authorId: dbUser?.id || userId,
+        authorName: dbUser?.name || req.user.email,
       },
     });
   }

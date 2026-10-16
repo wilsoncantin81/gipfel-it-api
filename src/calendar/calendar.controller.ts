@@ -29,7 +29,8 @@ export class CalendarController {
 
   @Post()
   async create(@Body() body: any, @Request() req: any) {
-    const user = req.user;
+    const userId = req.user.sub;
+    const dbUser = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true } });
     return this.prisma.calendarEvent.create({
       data: {
         date: body.date,
@@ -43,8 +44,8 @@ export class CalendarController {
         timeStart: body.timeStart || null,
         timeEnd: body.timeEnd || null,
         notes: body.notes || null,
-        createdById: user.id,
-        createdByName: user.name,
+        createdById: dbUser?.id || userId,
+        createdByName: dbUser?.name || req.user.email,
       },
     });
   }
