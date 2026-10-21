@@ -4,7 +4,7 @@ import { PrismaService } from '../common/prisma.service';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 
-const ALL_MODULES = ['dashboard','clientes','activos','mantenimiento','reportes','tickets','tipos','usuarios','financiero','comisiones'];
+const ALL_MODULES = ['dashboard','clientes','activos','mantenimiento','reportes','tickets','tipos','usuarios','financiero','comisiones','calendario','notas','pagos','descargas'];
 const CLIENT_MODULES = ['activos', 'tickets', 'reportes', 'mantenimiento', 'dashboard'];
 
 @Injectable()
