@@ -29,6 +29,7 @@ model User {
   client             Client?              @relation(fields: [clientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   teamNotes          TeamNote[]
   calendarEvents     CalendarEvent[]
+  payableInvoices    PayableInvoice[]
 
   @@map("users")
 }
@@ -448,4 +449,26 @@ model CalendarEvent {
   createdBy    User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
 
   @@map("calendar_events")
+}
+
+model PayableInvoice {
+  id            String    @id @default(uuid())
+  invoiceNumber String?   @map("invoice_number")
+  type          String    @default("factura") // factura | gasto_fijo | otro
+  supplier      String
+  description   String?
+  amount        Float
+  invoiceDate   String    @map("invoice_date")   // YYYY-MM-DD
+  dueDate       String    @map("due_date")        // YYYY-MM-DD (auto: +30 days)
+  status        String    @default("pendiente")   // pendiente | pagada | vencida
+  paidAt        String?   @map("paid_at")         // YYYY-MM-DD when marked paid
+  paidAmount    Float?    @map("paid_amount")
+  notes         String?
+  createdById   String    @map("created_by_id")
+  createdByName String    @map("created_by_name")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  createdBy     User      @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@map("payable_invoices")
 }
