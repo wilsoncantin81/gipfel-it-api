@@ -464,6 +464,7 @@ model PayableInvoice {
   paidAt        String?   @map("paid_at")         // YYYY-MM-DD when marked paid
   paidAmount    Float?    @map("paid_amount")
   notes         String?
+  recurring     Boolean   @default(false)         // auto-create next month when paid
   createdById   String    @map("created_by_id")
   createdByName String    @map("created_by_name")
   createdAt     DateTime  @default(now()) @map("created_at")

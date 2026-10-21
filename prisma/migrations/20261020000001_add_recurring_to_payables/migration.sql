@@ -1,0 +1,1 @@
+ALTER TABLE "payable_invoices" ADD COLUMN IF NOT EXISTS "recurring" BOOLEAN NOT NULL DEFAULT false;
