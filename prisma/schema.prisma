@@ -92,10 +92,12 @@ model Asset {
   updatedAt                  DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
   supplier                   String?
   assignedUser               String?             @map("assigned_user")
+  assignedUserId             String?             @map("assigned_user_id")
   responsible                String?
   ipAddress                  String?             @map("ip_address")
   macAddress                 String?             @map("mac_address")
   remoteAccess               String?             @map("remote_access")
+  remoteAccessPasswordEnc    String?             @map("remote_access_password_enc")
   extraFields                Json?               @default("{}") @map("extra_fields")
   dynFields                  Json?               @map("dyn_fields")
   qrCodeUrl                  String?             @map("qr_code_url")

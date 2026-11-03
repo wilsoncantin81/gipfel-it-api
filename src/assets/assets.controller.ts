@@ -91,6 +91,12 @@ import { PrismaService } from '../common/prisma.service';
           return this.service.getPassword(id);
     }
 
+  @Get(':id/remote-password')
+    async getRemotePassword(@Param('id') id: string, @Request() req: any) {
+          if (req.user?.role === 'CLIENTE') throw new ForbiddenException('No autorizado');
+          return this.service.getRemotePassword(id);
+    }
+
   @Get(':id')
     async findOne(@Param('id') id: string, @Request() req: any) {
           const asset = await this.service.findOne(id);

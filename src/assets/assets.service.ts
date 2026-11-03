@@ -1,7 +1,7 @@
 ﻿import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import * as ExcelJS from 'exceljs';
-import { encrypt } from '../common/crypto.util';
+import { encrypt, decrypt } from '../common/crypto.util';
 
 @Injectable()
 export class AssetsService {
@@ -57,10 +57,12 @@ export class AssetsService {
         location: createAssetDto.location,
         supplier: createAssetDto.supplier,
         assignedUser: createAssetDto.assignedUser,
+        assignedUserId: createAssetDto.assignedUserId || null,
         responsible: createAssetDto.responsible,
         ipAddress: createAssetDto.ipAddress,
         macAddress: createAssetDto.macAddress,
         remoteAccess: createAssetDto.remoteAccess,
+        remoteAccessPasswordEnc: createAssetDto.remoteAccessPassword ? encrypt(createAssetDto.remoteAccessPassword) : undefined,
         notes: createAssetDto.notes,
         extraFields: createAssetDto.extraFields ?? {},
         passwordEnc: createAssetDto.password ? encrypt(createAssetDto.password) : undefined,
@@ -87,10 +89,12 @@ export class AssetsService {
         location: updateAssetDto.location,
         supplier: updateAssetDto.supplier,
         assignedUser: updateAssetDto.assignedUser,
+        assignedUserId: updateAssetDto.assignedUserId !== undefined ? (updateAssetDto.assignedUserId || null) : undefined,
         responsible: updateAssetDto.responsible,
         ipAddress: updateAssetDto.ipAddress,
         macAddress: updateAssetDto.macAddress,
         remoteAccess: updateAssetDto.remoteAccess,
+        ...(updateAssetDto.remoteAccessPassword ? { remoteAccessPasswordEnc: encrypt(updateAssetDto.remoteAccessPassword) } : {}),
         notes: updateAssetDto.notes,
         extraFields: updateAssetDto.extraFields ?? undefined,
         ...(updateAssetDto.password ? { passwordEnc: encrypt(updateAssetDto.password) } : {}),
@@ -324,10 +328,28 @@ export class AssetsService {
 
     if (!asset) throw new Error('Asset not found');
 
+    const plain = asset.passwordEnc ? decrypt(asset.passwordEnc) : null;
     return {
       code: asset.code,
+      password: plain || null,
       hasPassword: !!asset.passwordEnc,
-      message: 'Password info retrieved - decrypt on frontend',
+    };
+  }
+
+  async getRemotePassword(id: string) {
+    const asset = await this.prisma.asset.findUnique({
+      where: { id },
+      select: { code: true, remoteAccessPasswordEnc: true },
+    });
+
+    if (!asset) throw new Error('Asset not found');
+
+    const enc = (asset as any).remoteAccessPasswordEnc;
+    const plain = enc ? decrypt(enc) : null;
+    return {
+      code: asset.code,
+      password: plain || null,
+      hasPassword: !!enc,
     };
   }
 
