@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, Query, UseGuards, Res, Header, Request, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, Query, UseGuards, Res, Header, Request, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Response } from 'express';
@@ -105,15 +105,31 @@ import { PrismaService } from '../common/prisma.service';
     }
 
   @Post()
-    create(@Body() dto: any, @Request() req: any) {
+    async create(@Body() dto: any, @Request() req: any) {
           if (req.user?.role === 'CLIENTE') throw new ForbiddenException('No autorizado');
-          return this.service.create(dto);
+          try { return await this.service.create(dto); }
+          catch (e: any) {
+            if (e?.code === 'P2002') {
+              const field = e?.meta?.target?.[0] || 'campo';
+              const msg = field === 'serial' ? 'Ya existe un activo con ese número de serie' : field === 'code' ? 'Ya existe un activo con ese código' : `Valor duplicado en: ${field}`;
+              throw new BadRequestException(msg);
+            }
+            throw e;
+          }
     }
 
   @Put(':id')
-    update(@Param('id') id: string, @Body() dto: any, @Request() req: any) {
+    async update(@Param('id') id: string, @Body() dto: any, @Request() req: any) {
           if (req.user?.role === 'CLIENTE') throw new ForbiddenException('No autorizado');
-          return this.service.update(id, dto);
+          try { return await this.service.update(id, dto); }
+          catch (e: any) {
+            if (e?.code === 'P2002') {
+              const field = e?.meta?.target?.[0] || 'campo';
+              const msg = field === 'serial' ? 'Ya existe un activo con ese número de serie' : field === 'code' ? 'Ya existe un activo con ese código' : `Valor duplicado en: ${field}`;
+              throw new BadRequestException(msg);
+            }
+            throw e;
+          }
     }
 
   @Delete(':id')
