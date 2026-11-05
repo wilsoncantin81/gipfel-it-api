@@ -65,6 +65,56 @@ let ReportsService = class ReportsService {
             },
         });
     }
+    async update(id, dto, userId) {
+        const before = await this.prisma.serviceReport.findUnique({ where: { id } });
+        if (!before)
+            throw new Error('Reporte no encontrado');
+        const data = {};
+        if (dto.description !== undefined)
+            data.description = dto.description;
+        if (dto.observations !== undefined)
+            data.observations = dto.observations;
+        if (dto.conclusion !== undefined)
+            data.conclusion = dto.conclusion;
+        if (dto.serviceType !== undefined)
+            data.serviceType = dto.serviceType;
+        if (dto.date !== undefined)
+            data.date = this.parseDate(dto.date);
+        if (dto.technicianId !== undefined)
+            data.technicianId = dto.technicianId || null;
+        if (dto.assetIds !== undefined)
+            data.assets = { deleteMany: {}, create: (dto.assetIds || []).map((a) => ({ assetId: typeof a === 'string' ? a : a.id, workDetail: typeof a === 'object' ? (a.workDetail || undefined) : undefined })) };
+        if (dto.receivedBy !== undefined)
+            data.receivedBy = dto.receivedBy || null;
+        if (dto.signatureUrl !== undefined)
+            data.signatureUrl = dto.signatureUrl || null;
+        const updated = await this.prisma.serviceReport.update({ where: { id }, data });
+        const changedFields = Object.keys(data);
+        if (changedFields.length > 0) {
+            try {
+                const beforeVals = {};
+                changedFields.forEach((k) => { beforeVals[k] = before[k]; });
+                await this.prisma.activityLog.create({
+                    data: {
+                        userId: userId || null,
+                        action: 'REPORT_UPDATE',
+                        entityType: 'REPORT',
+                        entityId: id,
+                        meta: { fields: changedFields, before: beforeVals, after: data },
+                    },
+                });
+            }
+            catch (e) { }
+        }
+        return updated;
+    }
+    async getAuditLog(id) {
+        return this.prisma.activityLog.findMany({
+            where: { entityType: 'REPORT', entityId: id },
+            orderBy: { createdAt: 'desc' },
+            include: { user: { select: { id: true, name: true } } },
+        });
+    }
     async create(dto) {
         const count = await this.prisma.serviceReport.count();
         const reportNumber = `RPT-${String(count + 1).padStart(5, '0')}`;
@@ -74,14 +124,15 @@ let ReportsService = class ReportsService {
                 reportNumber,
                 clientId: data.clientId,
                 technicianId: data.technicianId || undefined,
-                date: new Date(data.date),
+                date: this.parseDate(data.date),
                 serviceType: data.serviceType,
                 description: data.description,
                 observations: observations || undefined,
                 conclusion: conclusion || undefined,
                 signatureUrl: signatureUrl || undefined,
+                receivedBy: receivedBy || undefined,
                 assets: assetIds?.length
-                    ? { create: assetIds.map((a) => ({ assetId: typeof a === 'string' ? a : a.id })) }
+                    ? { create: assetIds.map((a) => ({ assetId: typeof a === 'string' ? a : a.id, workDetail: typeof a === 'object' ? (a.workDetail || undefined) : undefined })) }
                     : undefined,
             },
             include: { client: true, technician: { select: { id: true, name: true } } },
@@ -99,10 +150,13 @@ let ReportsService = class ReportsService {
                             type: 'CORRECTIVO',
                             description: data.description || 'Servicio técnico',
                             workDone: workDetail || observations || undefined,
+                            reportId: rpt.id,
                         },
                     });
                 }
-                catch { }
+                catch (e) {
+                    console.error('Error creando registro de mantenimiento:', e);
+                }
             }
         }
         return rpt;
@@ -215,7 +269,7 @@ let ReportsService = class ReportsService {
             textBlock(rpt.observations);
         }
         if (rpt.conclusion) {
-            section('RECOMENDACIONES');
+            section('CONCLUSIÓN');
             textBlock(rpt.conclusion);
         }
         if (assets.length > 0) {
@@ -232,13 +286,28 @@ let ReportsService = class ReportsService {
             assets.forEach((ra, ri) => {
                 const a = ra.asset;
                 const rh = 16;
+                if (y + rh + 40 > 820) {
+                    doc.addPage();
+                    y = 40;
+                }
                 doc.rect(margin, y, cw, rh).fill(ri % 2 === 0 ? white : lightGray).stroke('#DDDDDD');
                 tx = margin;
-                [a?.name || '–', a?.assetType?.name || '–', `${a?.brand || ''} ${a?.model || ''}`.trim() || '–', a?.serial || '–'].forEach((v, i) => {
+                [a?.name || '-', a?.assetType?.name || '-', `${a?.brand || ''} ${a?.model || ''}`.trim() || '-', a?.serial || '-'].forEach((v, i) => {
                     doc.fillColor(darkGray).fontSize(7.5).font('Helvetica').text(v, tx + 4, y + 4, { width: cols[i] - 8 });
                     tx += cols[i];
                 });
                 y += rh;
+                if (ra.workDetail) {
+                    const wLabel = `Trabajo realizado: ${ra.workDetail}`;
+                    const wh = Math.max(doc.heightOfString(wLabel, { width: cw - 16 }) + 10, 18);
+                    if (y + wh + 40 > 820) {
+                        doc.addPage();
+                        y = 40;
+                    }
+                    doc.rect(margin, y, cw, wh).fill('#EAF2FB').stroke('#DDDDDD');
+                    doc.fillColor(darkGray).fontSize(7).font('Helvetica').text(wLabel, margin + 8, y + 5, { width: cw - 16 });
+                    y += wh;
+                }
             });
             y += 5;
         }
@@ -286,24 +355,26 @@ let ReportsService = class ReportsService {
         if (!recipient)
             throw new Error('No hay correo destinatario');
         const assetsHtml = assets.length > 0 ? `
-      <table style="width:100%;border-collapse:collapse;margin-top:8px">
-        <tr style="background:#00AEEF;color:white">
-          <th style="padding:6px;text-align:left">Equipo</th>
-          <th style="padding:6px;text-align:left">Tipo</th>
-          <th style="padding:6px;text-align:left">Serial</th>
-        </tr>
-        ${assets.map((ra, i) => `
-          <tr style="background:${i % 2 === 0 ? '#f9f9f9' : 'white'}">
-            <td style="padding:6px;border-bottom:1px solid #eee">${ra.asset?.name || '–'}</td>
-            <td style="padding:6px;border-bottom:1px solid #eee">${ra.asset?.assetType?.name || '–'}</td>
-            <td style="padding:6px;border-bottom:1px solid #eee">${ra.asset?.serial || '–'}</td>
-          </tr>`).join('')}
-      </table>` : '<p style="color:#888">Sin equipos registrados</p>';
+<table style="width:100%;border-collapse:collapse;margin-top:8px">
+<tr style="background:#00AEEF;color:white">
+<th style="padding:6px;text-align:left">Equipo</th>
+<th style="padding:6px;text-align:left">Tipo</th>
+<th style="padding:6px;text-align:left">Serial</th>
+<th style="padding:6px;text-align:left">Trabajo Realizado</th>
+</tr>
+${assets.map((ra, i) => `
+<tr style="background:${i % 2 === 0 ? '#f9f9f9' : 'white'}">
+<td style="padding:6px;border-bottom:1px solid #eee">${ra.asset?.name || '-'}</td>
+<td style="padding:6px;border-bottom:1px solid #eee">${ra.asset?.assetType?.name || '-'}</td>
+<td style="padding:6px;border-bottom:1px solid #eee">${ra.asset?.serial || '-'}</td>
+<td style="padding:6px;border-bottom:1px solid #eee">${ra.workDetail || '-'}</td>
+</tr>`).join('')}
+</table>` : '<p style="color:#888">Sin equipos registrados</p>';
         const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
 <body style="font-family:Arial,sans-serif;margin:0;padding:0;background:#f4f4f4">
   <div style="max-width:600px;margin:20px auto;background:white;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
     <div style="background:#ffffff;padding:24px;text-align:center;border-bottom:3px solid #00AEEF">
-      <img src="${COMPANY.logoDarkUrl}" style="height:70px;margin-bottom:12px" onerror="this.style.display='none'">
+            <img src="${COMPANY.logoUrl}" style="height:70px;margin-bottom:12px" onerror="this.style.display='none'">
       <h1 style="color:#0A4F8C;margin:0;font-size:18px;font-weight:bold">Reporte de Servicio Técnico</h1>
     </div>
     <div style="background:#00AEEF;padding:10px 24px;text-align:center">
@@ -332,7 +403,7 @@ let ReportsService = class ReportsService {
                 <p style="margin:8px 0 0;color:#333">${rpt.observations}</p>
       </div>` : ''}
               ${rpt.conclusion ? `<div style="background:#fff3cd;border-left:4px solid #ffc107;padding:12px;margin-bottom:16px;border-radius:0 4px 4px 0">
-        <strong style="color:#856404">Recomendaciones:</strong>
+        <strong style="color:#856404">Conclusión:</strong>
                 <p style="margin:8px 0 0;color:#333">${rpt.conclusion}</p>
       </div>` : ''}
       <strong style="color:#0A4F8C">Equipos Intervenidos:</strong>

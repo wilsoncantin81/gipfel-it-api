@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.notifyTicketAssigned = notifyTicketAssigned;
+exports.notifyNewTicket = notifyNewTicket;
 const nodemailer = require("nodemailer");
 function getTransporter() {
     const host = process.env.SMTP_HOST;
@@ -55,6 +56,26 @@ async function notifyTicketAssigned(prisma, ticketId) {
     }
     catch (e) {
         console.error('notifyTicketAssigned error:', e?.message);
+    }
+}
+async function notifyNewTicket(prisma, ticketId) {
+    try {
+        const ticket = await prisma.ticket.findUnique({
+            where: { id: ticketId },
+            include: { client: true },
+        });
+        if (!ticket)
+            return;
+        const admins = await prisma.user.findMany({ where: { role: 'ADMIN', isActive: true } });
+        const clientName = ticket.client?.businessName || '';
+        const msg = `Gipfel IT: nuevo ticket ${ticket.ticketNumber} de ${clientName}. ${ticket.title}`;
+        await Promise.all(admins.map((admin) => Promise.all([
+            sendEmail(admin.email, `Nuevo ticket: ${ticket.ticketNumber}`, `<p>${msg}</p><p>Ingresa al panel para ver el detalle.</p>`),
+            sendWhatsapp(admin.phone, admin.whatsappApiKey, msg),
+        ])));
+    }
+    catch (e) {
+        console.error('notifyNewTicket error:', e?.message);
     }
 }
 //# sourceMappingURL=notify.js.map

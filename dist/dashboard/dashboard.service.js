@@ -21,7 +21,7 @@ let DashboardService = class DashboardService {
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         const in90 = new Date(now.getTime() + 90 * 86400000);
         const in30 = new Date(now.getTime() + 30 * 86400000);
-        const [totalClients, activeClients, totalAssets, activeAssets, openTickets, criticalTickets, pendingWilson, reportsThisMonth, warrantyExpiring, maintDue, unreadAlerts, salesThisMonth, pendingCommissions, ticketsNuevo, ticketsEnEjecucion, ticketsPorConfirmacion, ticketsPorFacturacion, ticketsCerrado] = await Promise.all([
+        const [totalClients, activeClients, totalAssets, activeAssets, openTickets, criticalTickets, pendingWilson, reportsThisMonth, warrantyExpiring, maintDue, unreadAlerts, salesThisMonth, pendingCommissions, ticketsNuevo, ticketsEnEjecucion, ticketsPorConfirmacion, ticketsPorFacturacion, ticketsCerrado, ticketsPendientePorPago, toCollect, pendientePorPagoValue] = await Promise.all([
             this.prisma.client.count(),
             this.prisma.client.count({ where: { status: 'ACTIVO' } }),
             this.prisma.asset.count(),
@@ -40,6 +40,9 @@ let DashboardService = class DashboardService {
             this.prisma.ticket.count({ where: { status: 'POR_CONFIRMACION' } }),
             this.prisma.ticket.count({ where: { status: 'POR_FACTURACION' } }),
             this.prisma.ticket.count({ where: { status: 'CERRADO' } }),
+            this.prisma.ticket.count({ where: { status: 'PENDIENTE_POR_PAGO' } }),
+            this.prisma.ticket.aggregate({ where: { status: { in: ['POR_FACTURACION', 'PENDIENTE_POR_PAGO'] } }, _sum: { salePrice: true } }),
+            this.prisma.ticket.aggregate({ where: { status: 'PENDIENTE_POR_PAGO' }, _sum: { salePrice: true } }),
         ]);
         return {
             clients: { total: totalClients, active: activeClients },
@@ -51,6 +54,8 @@ let DashboardService = class DashboardService {
                 salesThisMonth: salesThisMonth._sum.salePrice || 0,
                 utilityThisMonth: salesThisMonth._sum.utility || 0,
                 pendingCommissions: pendingCommissions._sum.amount || 0,
+                totalToCollect: toCollect._sum.salePrice || 0,
+                pendientePorPagoValue: pendientePorPagoValue._sum.salePrice || 0,
             },
             ticketsByStatus: {
                 NUEVO: ticketsNuevo,
@@ -58,6 +63,7 @@ let DashboardService = class DashboardService {
                 POR_CONFIRMACION: ticketsPorConfirmacion,
                 PENDIENTE_WILSON: pendingWilson,
                 POR_FACTURACION: ticketsPorFacturacion,
+                PENDIENTE_POR_PAGO: ticketsPendientePorPago,
                 CERRADO: ticketsCerrado,
             },
         };
@@ -174,6 +180,38 @@ let DashboardService = class DashboardService {
             commission: t.commission?.amount || 0, commStatus: t.commission?.status || 'N/A',
         }));
         return wb.xlsx.writeBuffer();
+    }
+    async getClientSummary(clientId) {
+        const now = new Date();
+        const in90 = new Date(now.getTime() + 90 * 86400000);
+        const in30 = new Date(now.getTime() + 30 * 86400000);
+        const [totalAssets, activeAssets, openTickets, reportsCount, warrantyExpiring, maintDue, recentActivity, recentReports] = await Promise.all([
+            this.prisma.asset.count({ where: { clientId } }),
+            this.prisma.asset.count({ where: { clientId, status: 'ACTIVO' } }),
+            this.prisma.ticket.count({ where: { clientId, status: { not: 'CERRADO' } } }),
+            this.prisma.serviceReport.count({ where: { clientId } }),
+            this.prisma.asset.count({ where: { clientId, warrantyUntil: { lte: in90, gte: now }, status: 'ACTIVO' } }),
+            this.prisma.asset.count({ where: { clientId, nextMaintenance: { lte: in30, gte: now }, status: 'ACTIVO' } }),
+            this.prisma.maintenanceRecord.findMany({
+                where: { asset: { clientId } },
+                take: 10,
+                orderBy: { createdAt: 'desc' },
+                include: { asset: { include: { assetType: true } }, technician: { select: { name: true } } },
+            }),
+            this.prisma.serviceReport.findMany({
+                where: { clientId },
+                take: 5,
+                orderBy: { date: 'desc' },
+                select: { id: true, reportNumber: true, date: true, serviceType: true },
+            }),
+        ]);
+        return {
+            assets: { total: totalAssets, active: activeAssets },
+            tickets: { open: openTickets },
+            reports: { total: reportsCount, recent: recentReports },
+            alerts: { warrantyExpiring, maintenanceDue: maintDue },
+            recentActivity,
+        };
     }
 };
 exports.DashboardService = DashboardService;

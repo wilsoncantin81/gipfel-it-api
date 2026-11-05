@@ -22,6 +22,11 @@ let DashboardController = class DashboardController {
         this.service = service;
     }
     getKPIs() { return this.service.getKPIs(); }
+    getClientSummary(req) {
+        if (req.user?.role !== 'CLIENTE')
+            throw new common_1.ForbiddenException('Solo disponible para clientes');
+        return this.service.getClientSummary(req.user.clientId);
+    }
     getActivity(limit) { return this.service.getRecentActivity(Number(limit) || 10); }
     getWarranty() { return this.service.getWarrantyExpiring(); }
     getMaintenance() { return this.service.getMaintenanceDue(); }
@@ -42,6 +47,13 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
 ], DashboardController.prototype, "getKPIs", null);
+__decorate([
+    (0, common_1.Get)('client-summary'),
+    __param(0, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], DashboardController.prototype, "getClientSummary", null);
 __decorate([
     (0, common_1.Get)('activity'),
     __param(0, (0, common_1.Query)('limit')),

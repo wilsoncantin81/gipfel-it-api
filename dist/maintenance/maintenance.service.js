@@ -17,6 +17,13 @@ let MaintenanceService = class MaintenanceService {
     constructor(prisma) {
         this.prisma = prisma;
     }
+    parseDate(d) {
+        if (!d)
+            return new Date();
+        if (d.includes('T'))
+            return new Date(d);
+        return new Date(d + 'T12:00:00-05:00');
+    }
     async findAll(query) {
         const where = {};
         if (query.assetId)
@@ -34,7 +41,12 @@ let MaintenanceService = class MaintenanceService {
         ]);
         return { data, total };
     }
-    async findByAsset(assetId) {
+    async findByAsset(assetId, clientId) {
+        if (clientId) {
+            const asset = await this.prisma.asset.findUnique({ where: { id: assetId }, select: { clientId: true } });
+            if (!asset || asset.clientId !== clientId)
+                return [];
+        }
         return this.prisma.maintenanceRecord.findMany({
             where: { assetId },
             include: { technician: { select: { id: true, name: true } } },
@@ -46,25 +58,25 @@ let MaintenanceService = class MaintenanceService {
             data: {
                 assetId: dto.assetId,
                 technicianId: dto.technicianId || undefined,
-                date: new Date(dto.date),
+                date: this.parseDate(dto.date),
                 type: dto.type,
                 description: dto.description,
                 workDone: dto.workDone,
                 parts: dto.parts || undefined,
                 timeSpent: dto.timeSpent ? parseFloat(dto.timeSpent) : undefined,
-                nextMaint: dto.nextMaint ? new Date(dto.nextMaint) : undefined,
+                nextMaint: dto.nextMaint ? this.parseDate(dto.nextMaint) : undefined,
                 reportId: dto.reportId || undefined,
             },
             include: { asset: { include: { client: true } }, technician: { select: { id: true, name: true } } },
         });
         if (dto.nextMaint)
-            await this.prisma.asset.update({ where: { id: dto.assetId }, data: { nextMaintenance: new Date(dto.nextMaint), status: 'ACTIVO' } });
+            await this.prisma.asset.update({ where: { id: dto.assetId }, data: { nextMaintenance: this.parseDate(dto.nextMaint), status: 'ACTIVO' } });
         if (dto.status)
             await this.prisma.asset.update({ where: { id: dto.assetId }, data: { status: dto.status } });
         return record;
     }
     async update(id, dto) {
-        return this.prisma.maintenanceRecord.update({ where: { id }, data: { description: dto.description, workDone: dto.workDone, type: dto.type, timeSpent: dto.timeSpent, parts: dto.parts || undefined, nextMaint: dto.nextMaint ? new Date(dto.nextMaint) : undefined } });
+        return this.prisma.maintenanceRecord.update({ where: { id }, data: { description: dto.description, workDone: dto.workDone, type: dto.type, timeSpent: dto.timeSpent, parts: dto.parts || undefined, nextMaint: dto.nextMaint ? this.parseDate(dto.nextMaint) : undefined } });
     }
     async remove(id) { return this.prisma.maintenanceRecord.delete({ where: { id } }); }
     async exportExcel(query) {

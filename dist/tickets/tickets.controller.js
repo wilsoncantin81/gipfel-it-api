@@ -31,7 +31,10 @@ let TicketsController = class TicketsController {
     getTask(id) { return this.service.getTask(id); }
     getSummary(id) { return this.service.getExpenseSummary(id); }
     async findOne(id, req) {
-        return this.assertOwnTicket(id, req);
+        if (req.user?.role === 'CLIENTE') {
+            throw new common_1.ForbiddenException('No autorizado para ver el detalle del ticket');
+        }
+        return this.service.findOne(id);
     }
     create(dto, req) {
         const payload = { ...dto, userId: req.user?.sub };
@@ -45,17 +48,11 @@ let TicketsController = class TicketsController {
     addExpense(id, dto) { return this.service.addExpense(id, dto); }
     toggleTask(id) { return this.service.toggleTask(id); }
     updateStatus(id, body, req) { return this.service.updateStatus(id, body, req.user?.sub); }
+    updateBilling(id, dto) { return this.service.updateBilling(id, dto); }
     update(id, dto) { return this.service.update(id, dto); }
     deleteTask(id) { return this.service.deleteTask(id); }
     deleteExpense(id) { return this.service.deleteExpense(id); }
     remove(id) { return this.service.remove(id); }
-    async assertOwnTicket(id, req) {
-        const ticket = await this.service.findOne(id);
-        if (req.user?.role === 'CLIENTE' && ticket?.clientId !== req.user.clientId) {
-            throw new common_1.ForbiddenException('No autorizado');
-        }
-        return ticket;
-    }
 };
 exports.TicketsController = TicketsController;
 __decorate([
@@ -134,6 +131,15 @@ __decorate([
     __metadata("design:paramtypes", [String, Object, Object]),
     __metadata("design:returntype", void 0)
 ], TicketsController.prototype, "updateStatus", null);
+__decorate([
+    (0, common_1.Put)(':id/billing'),
+    (0, roles_decorator_1.Roles)('ADMIN', 'TECNICO'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], TicketsController.prototype, "updateBilling", null);
 __decorate([
     (0, common_1.Put)(':id'),
     (0, roles_decorator_1.Roles)('ADMIN', 'TECNICO'),

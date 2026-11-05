@@ -21,26 +21,51 @@ let MaintenanceController = class MaintenanceController {
     constructor(service) {
         this.service = service;
     }
-    findAll(q) { return this.service.findAll(q); }
-    findByAsset(id) { return this.service.findByAsset(id); }
-    async export(q, res) { res.send(await this.service.exportExcel(q)); }
-    create(dto) { return this.service.create(dto); }
-    update(id, dto) { return this.service.update(id, dto); }
-    remove(id) { return this.service.remove(id); }
+    findAll(q, req) {
+        if (req.user?.role === 'CLIENTE')
+            q.clientId = req.user.clientId;
+        return this.service.findAll(q);
+    }
+    findByAsset(id, req) {
+        const clientId = req.user?.role === 'CLIENTE' ? req.user.clientId : undefined;
+        return this.service.findByAsset(id, clientId);
+    }
+    async export(q, res, req) {
+        if (req.user?.role === 'CLIENTE')
+            throw new common_1.ForbiddenException('No autorizado');
+        res.send(await this.service.exportExcel(q));
+    }
+    create(dto, req) {
+        if (req.user?.role === 'CLIENTE')
+            throw new common_1.ForbiddenException('No autorizado');
+        return this.service.create(dto);
+    }
+    update(id, dto, req) {
+        if (req.user?.role === 'CLIENTE')
+            throw new common_1.ForbiddenException('No autorizado');
+        return this.service.update(id, dto);
+    }
+    remove(id, req) {
+        if (req.user?.role === 'CLIENTE')
+            throw new common_1.ForbiddenException('No autorizado');
+        return this.service.remove(id);
+    }
 };
 exports.MaintenanceController = MaintenanceController;
 __decorate([
     (0, common_1.Get)(),
     __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", void 0)
 ], MaintenanceController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Get)('asset/:assetId'),
     __param(0, (0, common_1.Param)('assetId')),
+    __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], MaintenanceController.prototype, "findByAsset", null);
 __decorate([
@@ -49,30 +74,34 @@ __decorate([
     (0, common_1.Header)('Content-Disposition', 'attachment; filename=mantenimiento.xlsx'),
     __param(0, (0, common_1.Query)()),
     __param(1, (0, common_1.Res)()),
+    __param(2, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:paramtypes", [Object, Object, Object]),
     __metadata("design:returntype", Promise)
 ], MaintenanceController.prototype, "export", null);
 __decorate([
     (0, common_1.Post)(),
     __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", void 0)
 ], MaintenanceController.prototype, "create", null);
 __decorate([
     (0, common_1.Put)(':id'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:paramtypes", [String, Object, Object]),
     __metadata("design:returntype", void 0)
 ], MaintenanceController.prototype, "update", null);
 __decorate([
     (0, common_1.Delete)(':id'),
     __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], MaintenanceController.prototype, "remove", null);
 exports.MaintenanceController = MaintenanceController = __decorate([

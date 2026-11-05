@@ -45,15 +45,16 @@ let FilesService = class FilesService {
             await this.connectFTP();
             for (const file of files) {
                 const fileStream = stream_1.Readable.from(file.buffer);
-                await this.ftp.uploadFrom(fileStream, this.getRemotePath(file.originalname));
+                const storageName = `${Date.now()}-${file.originalname}`;
+                await this.ftp.uploadFrom(fileStream, this.getRemotePath(storageName));
                 const dbFile = await this.prisma.assetFile.create({
                     data: {
                         assetId,
                         filename: file.originalname,
-                        storageName: file.originalname,
+                        storageName,
                         mimetype: file.mimetype,
                         size: file.size,
-                        fileUrl: this.getPublicUrl(file.originalname),
+                        fileUrl: this.getPublicUrl(storageName),
                         uploadedAt: new Date(),
                     },
                 });
@@ -75,6 +76,80 @@ let FilesService = class FilesService {
             orderBy: { uploadedAt: 'desc' },
         });
     }
+    async saveReportFiles(reportId, files) {
+        const savedFiles = [];
+        try {
+            await this.connectFTP();
+            for (const file of files) {
+                const fileStream = stream_1.Readable.from(file.buffer);
+                const storageName = `${Date.now()}-${file.originalname}`;
+                await this.ftp.uploadFrom(fileStream, this.getRemotePath(storageName));
+                const dbFile = await this.prisma.assetFile.create({
+                    data: {
+                        reportId,
+                        filename: file.originalname,
+                        storageName,
+                        mimetype: file.mimetype,
+                        size: file.size,
+                        fileUrl: this.getPublicUrl(storageName),
+                        uploadedAt: new Date(),
+                    },
+                });
+                savedFiles.push(dbFile);
+            }
+        }
+        catch (error) {
+            throw new Error(`Error uploading files: ${error.message}`);
+        }
+        finally {
+            if (!this.ftp.closed)
+                await this.ftp.close();
+        }
+        return savedFiles;
+    }
+    async getReportFiles(reportId) {
+        return await this.prisma.assetFile.findMany({
+            where: { reportId },
+            orderBy: { uploadedAt: 'desc' },
+        });
+    }
+    async saveTicketFiles(ticketId, files) {
+        const savedFiles = [];
+        try {
+            await this.connectFTP();
+            for (const file of files) {
+                const fileStream = stream_1.Readable.from(file.buffer);
+                const storageName = `${Date.now()}-${file.originalname}`;
+                await this.ftp.uploadFrom(fileStream, this.getRemotePath(storageName));
+                const dbFile = await this.prisma.assetFile.create({
+                    data: {
+                        ticketId,
+                        filename: file.originalname,
+                        storageName,
+                        mimetype: file.mimetype,
+                        size: file.size,
+                        fileUrl: this.getPublicUrl(storageName),
+                        uploadedAt: new Date(),
+                    },
+                });
+                savedFiles.push(dbFile);
+            }
+        }
+        catch (error) {
+            throw new Error(`Error uploading files: ${error.message}`);
+        }
+        finally {
+            if (!this.ftp.closed)
+                await this.ftp.close();
+        }
+        return savedFiles;
+    }
+    async getTicketFiles(ticketId) {
+        return await this.prisma.assetFile.findMany({
+            where: { ticketId },
+            orderBy: { uploadedAt: 'desc' },
+        });
+    }
     async deleteFile(fileId) {
         const file = await this.prisma.assetFile.findUnique({ where: { id: fileId } });
         if (!file)
@@ -91,6 +166,54 @@ let FilesService = class FilesService {
                 await this.ftp.close();
         }
         await this.prisma.assetFile.delete({ where: { id: fileId } });
+        return { success: true };
+    }
+    async saveNoteFiles(noteId, clientId, files) {
+        const savedFiles = [];
+        try {
+            await this.connectFTP();
+            for (const file of files) {
+                const fileStream = stream_1.Readable.from(file.buffer);
+                const storageName = `note-${Date.now()}-${file.originalname}`;
+                await this.ftp.uploadFrom(fileStream, this.getRemotePath(storageName));
+                const url = this.getPublicUrl(storageName);
+                const dbFile = await this.prisma.clientNoteFile.create({
+                    data: { noteId, clientId, filename: file.originalname, url, mimeType: file.mimetype, size: file.size },
+                });
+                savedFiles.push(dbFile);
+            }
+        }
+        catch (error) {
+            console.error('saveNoteFiles error:', error);
+            throw new Error(`Error uploading files: ${error.message}`);
+        }
+        finally {
+            if (!this.ftp.closed)
+                await this.ftp.close();
+        }
+        return savedFiles;
+    }
+    async getNoteFiles(noteId) {
+        return this.prisma.clientNoteFile.findMany({
+            where: { noteId },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+    async deleteNoteFile(fileId) {
+        const file = await this.prisma.clientNoteFile.findUnique({ where: { id: fileId } });
+        if (file) {
+            const storageName = file.url.split('/').pop();
+            try {
+                await this.connectFTP();
+                await this.ftp.remove(this.getRemotePath(storageName));
+            }
+            catch { }
+            finally {
+                if (!this.ftp.closed)
+                    await this.ftp.close();
+            }
+            await this.prisma.clientNoteFile.delete({ where: { id: fileId } });
+        }
         return { success: true };
     }
 };

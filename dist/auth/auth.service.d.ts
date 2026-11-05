@@ -4,19 +4,7 @@ export declare class AuthService {
     private prisma;
     private jwt;
     constructor(prisma: PrismaService, jwt: JwtService);
-    validateUser(email: string, password: string): Promise<{
-        id: string;
-        email: string;
-        name: string;
-        role: import(".prisma/client").$Enums.UserRole;
-        isActive: boolean;
-        permissions: import("@prisma/client/runtime/library").JsonValue | null;
-        phone: string | null;
-        whatsappApiKey: string | null;
-        clientId: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-    }>;
+    validateUser(email: string, password: string): Promise<any>;
     login(user: any): Promise<{
         access_token: string;
         user: {
@@ -25,87 +13,27 @@ export declare class AuthService {
             email: any;
             role: any;
             permissions: string[];
-            clientId: string;
+            clientId: any;
         };
     }>;
     register(dto: any): Promise<{
-        id: string;
-        name: string;
-        email: string;
-        role: import(".prisma/client").$Enums.UserRole;
-        clientId: string;
+        id: any;
+        name: any;
+        email: any;
+        role: any;
+        clientId: any;
     }>;
-    getProfile(userId: string): Promise<{
-        id: string;
-        email: string;
-        name: string;
-        role: import(".prisma/client").$Enums.UserRole;
-        isActive: boolean;
-        permissions: import("@prisma/client/runtime/library").JsonValue;
-        phone: string;
-        whatsappApiKey: string;
-        clientId: string;
-    }>;
-    getUsers(): Promise<{
-        id: string;
-        email: string;
-        name: string;
-        role: import(".prisma/client").$Enums.UserRole;
-        isActive: boolean;
-        permissions: import("@prisma/client/runtime/library").JsonValue;
-        phone: string;
-        whatsappApiKey: string;
-        clientId: string;
-    }[]>;
-    getTechnicians(): Promise<{
-        id: string;
-        email: string;
-        name: string;
-        role: import(".prisma/client").$Enums.UserRole;
-    }[]>;
-    updatePermissions(id: string, permissions: string[]): Promise<{
-        id: string;
-        email: string;
-        name: string;
-        passwordHash: string;
-        role: import(".prisma/client").$Enums.UserRole;
-        isActive: boolean;
-        permissions: import("@prisma/client/runtime/library").JsonValue | null;
-        phone: string | null;
-        whatsappApiKey: string | null;
-        clientId: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-    }>;
-    updateContact(id: string, dto: any): Promise<{
-        id: string;
-        email: string;
-        name: string;
-        passwordHash: string;
-        role: import(".prisma/client").$Enums.UserRole;
-        isActive: boolean;
-        permissions: import("@prisma/client/runtime/library").JsonValue | null;
-        phone: string | null;
-        whatsappApiKey: string | null;
-        clientId: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-    }>;
+    updateUser(id: string, dto: any): Promise<any>;
+    getProfile(userId: string): Promise<any>;
+    getUsers(): Promise<any>;
+    getTechnicians(): Promise<any>;
+    updatePermissions(id: string, permissions: string[]): Promise<any>;
+    updateContact(id: string, dto: any): Promise<any>;
     resetPassword(id: string, password: string): Promise<{
         success: boolean;
     }>;
-    updateStatus(id: string, isActive: boolean): Promise<{
-        id: string;
-        email: string;
-        name: string;
-        passwordHash: string;
-        role: import(".prisma/client").$Enums.UserRole;
-        isActive: boolean;
-        permissions: import("@prisma/client/runtime/library").JsonValue | null;
-        phone: string | null;
-        whatsappApiKey: string | null;
-        clientId: string | null;
-        createdAt: Date;
-        updatedAt: Date;
+    updateStatus(id: string, isActive: boolean): Promise<any>;
+    getDescargasSsoUrl(user: any): Promise<{
+        url: string;
     }>;
 }

@@ -23,8 +23,14 @@ let AssetsController = class AssetsController {
         this.service = service;
         this.prisma = prisma;
     }
-    findAll(q) { return this.service.findAll(q); }
-    async exportExcel(q, res) {
+    findAll(q, req) {
+        if (req.user?.role === 'CLIENTE')
+            q.clientId = req.user.clientId;
+        return this.service.findAll(q);
+    }
+    async exportExcel(q, res, req) {
+        if (req.user?.role === 'CLIENTE')
+            q.clientId = req.user.clientId;
         try {
             const result = await this.service.exportExcel(q);
             const buffer = result.buffer;
@@ -45,7 +51,9 @@ let AssetsController = class AssetsController {
             res.status(500).json({ error: 'Error generating Excel export' });
         }
     }
-    async exportPDF(q, res) {
+    async exportPDF(q, res, req) {
+        if (req.user?.role === 'CLIENTE')
+            q.clientId = req.user.clientId;
         try {
             const html = await this.service.exportPDF(q);
             res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -57,109 +65,169 @@ let AssetsController = class AssetsController {
             res.status(500).json({ error: 'Error generating PDF export' });
         }
     }
-    async getAssetPDF(id, res) {
+    async getAssetPDF(id, res, req) {
         try {
             const [html, asset] = await Promise.all([
                 this.service.getAssetPDF(id),
-                this.prisma.asset.findUnique({ where: { id }, select: { code: true } }),
+                this.prisma.asset.findUnique({ where: { id }, select: { code: true, clientId: true } }),
             ]);
+            if (req.user?.role === 'CLIENTE' && asset?.clientId !== req.user.clientId)
+                throw new common_1.ForbiddenException('No autorizado');
             const safeName = (asset?.code || id).replace(/[^a-zA-Z0-9_-]/g, '_');
             res.setHeader('Content-Type', 'text/html; charset=utf-8');
             res.setHeader('Content-Disposition', `attachment; filename="hoja_vida_${safeName}.html"`);
             res.send(html);
         }
         catch (error) {
+            if (error instanceof common_1.ForbiddenException)
+                throw error;
             res.status(500).json({ error: 'Error generating asset PDF' });
         }
     }
-    getQR(id) { return this.service.getQR(id); }
-    getPassword(id) { return this.service.getPassword(id); }
-    findOne(id) { return this.service.findOne(id); }
-    create(dto) { return this.service.create(dto); }
-    update(id, dto) { return this.service.update(id, dto); }
-    remove(id) { return this.service.remove(id); }
-    async importExcel(body) { return this.service.importFromExcel(body.rows); }
+    async getQR(id, req) {
+        if (req.user?.role === 'CLIENTE') {
+            const asset = await this.prisma.asset.findUnique({ where: { id }, select: { clientId: true } });
+            if (asset?.clientId !== req.user.clientId)
+                throw new common_1.ForbiddenException('No autorizado');
+        }
+        return this.service.getQR(id);
+    }
+    async getPassword(id, req) {
+        if (req.user?.role === 'CLIENTE')
+            throw new common_1.ForbiddenException('No autorizado');
+        return this.service.getPassword(id);
+    }
+    async getRemotePassword(id, req) {
+        if (req.user?.role === 'CLIENTE')
+            throw new common_1.ForbiddenException('No autorizado');
+        return this.service.getRemotePassword(id);
+    }
+    async findOne(id, req) {
+        const asset = await this.service.findOne(id);
+        if (req.user?.role === 'CLIENTE' && asset?.clientId !== req.user.clientId)
+            throw new common_1.ForbiddenException('No autorizado');
+        return asset;
+    }
+    create(dto, req) {
+        if (req.user?.role === 'CLIENTE')
+            throw new common_1.ForbiddenException('No autorizado');
+        return this.service.create(dto);
+    }
+    update(id, dto, req) {
+        if (req.user?.role === 'CLIENTE')
+            throw new common_1.ForbiddenException('No autorizado');
+        return this.service.update(id, dto);
+    }
+    remove(id, req) {
+        if (req.user?.role === 'CLIENTE')
+            throw new common_1.ForbiddenException('No autorizado');
+        return this.service.remove(id);
+    }
+    async importExcel(body, req) {
+        if (req.user?.role === 'CLIENTE')
+            throw new common_1.ForbiddenException('No autorizado');
+        return this.service.importFromExcel(body.rows);
+    }
 };
 exports.AssetsController = AssetsController;
 __decorate([
     (0, common_1.Get)(),
     __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", void 0)
 ], AssetsController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Get)('export/excel'),
     __param(0, (0, common_1.Query)()),
     __param(1, (0, common_1.Res)()),
+    __param(2, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:paramtypes", [Object, Object, Object]),
     __metadata("design:returntype", Promise)
 ], AssetsController.prototype, "exportExcel", null);
 __decorate([
     (0, common_1.Get)('export/pdf'),
     __param(0, (0, common_1.Query)()),
     __param(1, (0, common_1.Res)()),
+    __param(2, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:paramtypes", [Object, Object, Object]),
     __metadata("design:returntype", Promise)
 ], AssetsController.prototype, "exportPDF", null);
 __decorate([
     (0, common_1.Get)(':id/pdf'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Res)()),
+    __param(2, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:paramtypes", [String, Object, Object]),
     __metadata("design:returntype", Promise)
 ], AssetsController.prototype, "getAssetPDF", null);
 __decorate([
     (0, common_1.Get)(':id/qr'),
     __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
 ], AssetsController.prototype, "getQR", null);
 __decorate([
     (0, common_1.Get)(':id/password'),
     __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
 ], AssetsController.prototype, "getPassword", null);
+__decorate([
+    (0, common_1.Get)(':id/remote-password'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], AssetsController.prototype, "getRemotePassword", null);
 __decorate([
     (0, common_1.Get)(':id'),
     __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
 ], AssetsController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Post)(),
     __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", void 0)
 ], AssetsController.prototype, "create", null);
 __decorate([
     (0, common_1.Put)(':id'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:paramtypes", [String, Object, Object]),
     __metadata("design:returntype", void 0)
 ], AssetsController.prototype, "update", null);
 __decorate([
     (0, common_1.Delete)(':id'),
     __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], AssetsController.prototype, "remove", null);
 __decorate([
     (0, common_1.Post)('import'),
     __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], AssetsController.prototype, "importExcel", null);
 exports.AssetsController = AssetsController = __decorate([

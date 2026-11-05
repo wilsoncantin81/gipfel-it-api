@@ -18,7 +18,7 @@ let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(pas
     constructor(c) {
         super({ jwtFromRequest: passport_jwt_1.ExtractJwt.fromAuthHeaderAsBearerToken(), ignoreExpiration: false, secretOrKey: c.get('JWT_SECRET', 'secret') });
     }
-    async validate(payload) { return { sub: payload.sub, email: payload.email, role: payload.role, clientId: payload.clientId ?? null }; }
+    async validate(payload) { return { sub: payload.sub, email: payload.email, role: payload.role, clientId: payload.clientId ?? null, permissions: payload.permissions ?? [] }; }
 };
 exports.JwtStrategy = JwtStrategy;
 exports.JwtStrategy = JwtStrategy = __decorate([

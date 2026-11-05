@@ -14,8 +14,9 @@ const common_1 = require("@nestjs/common");
 const jwt_1 = require("@nestjs/jwt");
 const prisma_service_1 = require("../common/prisma.service");
 const bcrypt = require("bcrypt");
-const ALL_MODULES = ['dashboard', 'clientes', 'activos', 'mantenimiento', 'reportes', 'tickets', 'tipos', 'usuarios', 'financiero', 'comisiones'];
-const CLIENT_MODULES = ['activos', 'tickets'];
+const crypto = require("crypto");
+const ALL_MODULES = ['dashboard', 'clientes', 'activos', 'mantenimiento', 'reportes', 'tickets', 'tipos', 'usuarios', 'financiero', 'comisiones', 'calendario', 'notas', 'pagos', 'descargas'];
+const CLIENT_MODULES = ['activos', 'tickets', 'reportes', 'mantenimiento', 'dashboard'];
 let AuthService = class AuthService {
     constructor(prisma, jwt) {
         this.prisma = prisma;
@@ -34,7 +35,7 @@ let AuthService = class AuthService {
         const fullUser = await this.prisma.user.findUnique({ where: { id: user.id }, select: { id: true, name: true, email: true, role: true, permissions: true, clientId: true } });
         const defaultPermissions = fullUser?.role === 'CLIENTE' ? CLIENT_MODULES : ALL_MODULES;
         const permissions = fullUser?.permissions || defaultPermissions;
-        const payload = { sub: user.id, email: user.email, role: user.role, clientId: fullUser?.clientId || null };
+        const payload = { sub: user.id, email: user.email, role: user.role, clientId: fullUser?.clientId || null, permissions };
         return {
             access_token: this.jwt.sign(payload),
             user: { id: user.id, name: user.name, email: user.email, role: user.role, permissions, clientId: fullUser?.clientId || null },
@@ -58,6 +59,18 @@ let AuthService = class AuthService {
             data: { name: dto.name, email: dto.email, passwordHash, role, permissions, clientId: role === 'CLIENTE' ? dto.clientId : null, phone: dto.phone || undefined, whatsappApiKey: dto.whatsappApiKey || undefined },
         });
         return { id: user.id, name: user.name, email: user.email, role: user.role, clientId: user.clientId };
+    }
+    async updateUser(id, dto) {
+        const data = {};
+        if (dto.name !== undefined)
+            data.name = dto.name;
+        if (dto.email !== undefined)
+            data.email = dto.email;
+        if (dto.role !== undefined)
+            data.role = dto.role;
+        if (dto.clientId !== undefined)
+            data.clientId = dto.role === 'CLIENTE' ? dto.clientId : null;
+        return this.prisma.user.update({ where: { id }, data, select: { id: true, name: true, email: true, role: true, clientId: true } });
     }
     async getProfile(userId) {
         return this.prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true, role: true, isActive: true, permissions: true, clientId: true, phone: true, whatsappApiKey: true } });
@@ -86,6 +99,18 @@ let AuthService = class AuthService {
     }
     async updateStatus(id, isActive) {
         return this.prisma.user.update({ where: { id }, data: { isActive } });
+    }
+    async getDescargasSsoUrl(user) {
+        const profile = await this.prisma.user.findUnique({ where: { id: user.sub }, select: { name: true } });
+        const payload = { sub: user.sub, name: profile?.name || user.email, role: user.role, exp: Date.now() + 60000 };
+        const payloadB64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
+        const key = process.env.DESCARGAS_SSO_SECRET;
+        if (!key)
+            throw new Error('DESCARGAS_SSO_SECRET no configurado');
+        const sig = crypto.createHmac('sha256', key).update(payloadB64).digest('base64url');
+        const token = `${payloadB64}.${sig}`;
+        const base = process.env.DESCARGAS_URL || 'https://grupogipfel.com/descargas';
+        return { url: `${base}/index.php?sso=${token}` };
     }
 };
 exports.AuthService = AuthService;

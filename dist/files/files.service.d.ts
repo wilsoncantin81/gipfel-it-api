@@ -7,17 +7,17 @@ export declare class FilesService {
     private getPublicUrl;
     private connectFTP;
     saveAssetFiles(assetId: string, files: Express.Multer.File[]): Promise<any[]>;
-    getAssetFiles(assetId: string): Promise<{
-        id: string;
-        size: number;
-        assetId: string;
-        filename: string;
-        storageName: string;
-        mimetype: string;
-        fileUrl: string;
-        uploadedAt: Date;
-    }[]>;
+    getAssetFiles(assetId: string): Promise<any>;
+    saveReportFiles(reportId: string, files: Express.Multer.File[]): Promise<any[]>;
+    getReportFiles(reportId: string): Promise<any>;
+    saveTicketFiles(ticketId: string, files: Express.Multer.File[]): Promise<any[]>;
+    getTicketFiles(ticketId: string): Promise<any>;
     deleteFile(fileId: string): Promise<{
+        success: boolean;
+    }>;
+    saveNoteFiles(noteId: string, clientId: string, files: Express.Multer.File[]): Promise<any[]>;
+    getNoteFiles(noteId: string): Promise<any>;
+    deleteNoteFile(fileId: string): Promise<{
         success: boolean;
     }>;
 }

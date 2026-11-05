@@ -69,8 +69,14 @@ let TicketsService = class TicketsService {
         return { expenses, totalCost, salePrice, utility, commission: utility * 0.1 };
     }
     async create(dto) {
-        const count = await this.prisma.ticket.count();
-        const ticketNumber = `TKT-${String(count + 1).padStart(5, '0')}`;
+        const lastTicket = await this.prisma.ticket.findFirst({ orderBy: { ticketNumber: 'desc' }, select: { ticketNumber: true } });
+        let nextNum = 1;
+        if (lastTicket?.ticketNumber) {
+            const m = lastTicket.ticketNumber.match(/(\d+)$/);
+            if (m)
+                nextNum = parseInt(m[1], 10) + 1;
+        }
+        const ticketNumber = `TKT-${String(nextNum).padStart(5, '0')}`;
         const { tasks, ...rest } = dto;
         if (rest.assetId) {
             const asset = await this.prisma.asset.findUnique({ where: { id: rest.assetId } });
@@ -95,6 +101,9 @@ let TicketsService = class TicketsService {
         await this.logStatusChange(ticket.id, 'NUEVO', rest.userId);
         if (data.assignedToId) {
             (0, notify_1.notifyTicketAssigned)(this.prisma, ticket.id).catch(() => { });
+        }
+        else {
+            (0, notify_1.notifyNewTicket)(this.prisma, ticket.id).catch(() => { });
         }
         return ticket;
     }

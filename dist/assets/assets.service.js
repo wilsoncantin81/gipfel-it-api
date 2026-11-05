@@ -24,8 +24,14 @@ let AssetsService = class AssetsService {
             where.clientId = q.clientId;
         if (q.status)
             where.status = q.status;
-        let ids = Array.isArray(q.assetTypeId) ? q.assetTypeId : [q.assetTypeId];
-        where.assetTypeId = ids?.length === 1 ? ids[0] : { in: ids };
+        if (q.assetTypeId) {
+            const ids = Array.isArray(q.assetTypeId) ? q.assetTypeId : [q.assetTypeId];
+            const filtered = ids.filter(Boolean);
+            if (filtered.length === 1)
+                where.assetTypeId = filtered[0];
+            else if (filtered.length > 1)
+                where.assetTypeId = { in: filtered };
+        }
         if (q.search)
             where.OR = [
                 { code: { contains: q.search, mode: 'insensitive' } },
@@ -64,10 +70,12 @@ let AssetsService = class AssetsService {
                 location: createAssetDto.location,
                 supplier: createAssetDto.supplier,
                 assignedUser: createAssetDto.assignedUser,
+                assignedUserId: createAssetDto.assignedUserId || null,
                 responsible: createAssetDto.responsible,
                 ipAddress: createAssetDto.ipAddress,
                 macAddress: createAssetDto.macAddress,
                 remoteAccess: createAssetDto.remoteAccess,
+                remoteAccessPasswordEnc: createAssetDto.remoteAccessPassword ? (0, crypto_util_1.encrypt)(createAssetDto.remoteAccessPassword) : undefined,
                 notes: createAssetDto.notes,
                 extraFields: createAssetDto.extraFields ?? {},
                 passwordEnc: createAssetDto.password ? (0, crypto_util_1.encrypt)(createAssetDto.password) : undefined,
@@ -93,10 +101,12 @@ let AssetsService = class AssetsService {
                 location: updateAssetDto.location,
                 supplier: updateAssetDto.supplier,
                 assignedUser: updateAssetDto.assignedUser,
+                assignedUserId: updateAssetDto.assignedUserId !== undefined ? (updateAssetDto.assignedUserId || null) : undefined,
                 responsible: updateAssetDto.responsible,
                 ipAddress: updateAssetDto.ipAddress,
                 macAddress: updateAssetDto.macAddress,
                 remoteAccess: updateAssetDto.remoteAccess,
+                ...(updateAssetDto.remoteAccessPassword ? { remoteAccessPasswordEnc: (0, crypto_util_1.encrypt)(updateAssetDto.remoteAccessPassword) } : {}),
                 notes: updateAssetDto.notes,
                 extraFields: updateAssetDto.extraFields ?? undefined,
                 ...(updateAssetDto.password ? { passwordEnc: (0, crypto_util_1.encrypt)(updateAssetDto.password) } : {}),
@@ -322,10 +332,26 @@ let AssetsService = class AssetsService {
         });
         if (!asset)
             throw new Error('Asset not found');
+        const plain = asset.passwordEnc ? (0, crypto_util_1.decrypt)(asset.passwordEnc) : null;
         return {
             code: asset.code,
+            password: plain || null,
             hasPassword: !!asset.passwordEnc,
-            message: 'Password info retrieved - decrypt on frontend',
+        };
+    }
+    async getRemotePassword(id) {
+        const asset = await this.prisma.asset.findUnique({
+            where: { id },
+            select: { code: true, remoteAccessPasswordEnc: true },
+        });
+        if (!asset)
+            throw new Error('Asset not found');
+        const enc = asset.remoteAccessPasswordEnc;
+        const plain = enc ? (0, crypto_util_1.decrypt)(enc) : null;
+        return {
+            code: asset.code,
+            password: plain || null,
+            hasPassword: !!enc,
         };
     }
     async importFromExcel(rows) {

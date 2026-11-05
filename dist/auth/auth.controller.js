@@ -27,11 +27,13 @@ let AuthController = class AuthController {
     technicians() { return this.auth.getTechnicians(); }
     getUsers() { return this.auth.getUsers(); }
     register(body) { return this.auth.register(body); }
+    updateUser(id, body) { return this.auth.updateUser(id, body); }
     updatePermissions(id, body) { return this.auth.updatePermissions(id, body.permissions); }
     updateContact(id, body) { return this.auth.updateContact(id, body); }
     resetPassword(id, body) { return this.auth.resetPassword(id, body.password); }
     updateStatus(id, body) { return this.auth.updateStatus(id, body.isActive); }
     profile(req) { return this.auth.getProfile(req.user.sub); }
+    descargasSso(req) { return this.auth.getDescargasSsoUrl(req.user); }
 };
 exports.AuthController = AuthController;
 __decorate([
@@ -70,6 +72,17 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], AuthController.prototype, "register", null);
+__decorate([
+    (0, common_1.Put)('users/:id'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)('ADMIN'),
+    (0, swagger_1.ApiBearerAuth)(),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "updateUser", null);
 __decorate([
     (0, common_1.Put)('users/:id/permissions'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), roles_guard_1.RolesGuard),
@@ -123,6 +136,16 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], AuthController.prototype, "profile", null);
+__decorate([
+    (0, common_1.Get)('descargas-sso'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)('ADMIN', 'TECNICO'),
+    (0, swagger_1.ApiBearerAuth)(),
+    __param(0, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "descargasSso", null);
 exports.AuthController = AuthController = __decorate([
     (0, swagger_1.ApiTags)('Auth'),
     (0, common_1.Controller)('auth'),

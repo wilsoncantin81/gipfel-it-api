@@ -10,87 +10,27 @@ export declare class AuthController {
             email: any;
             role: any;
             permissions: string[];
-            clientId: string;
+            clientId: any;
         };
     }>;
-    technicians(): Promise<{
-        id: string;
-        email: string;
-        name: string;
-        role: import(".prisma/client").$Enums.UserRole;
-    }[]>;
-    getUsers(): Promise<{
-        id: string;
-        email: string;
-        name: string;
-        role: import(".prisma/client").$Enums.UserRole;
-        isActive: boolean;
-        permissions: import("@prisma/client/runtime/library").JsonValue;
-        phone: string;
-        whatsappApiKey: string;
-        clientId: string;
-    }[]>;
+    technicians(): Promise<any>;
+    getUsers(): Promise<any>;
     register(body: any): Promise<{
-        id: string;
-        name: string;
-        email: string;
-        role: import(".prisma/client").$Enums.UserRole;
-        clientId: string;
+        id: any;
+        name: any;
+        email: any;
+        role: any;
+        clientId: any;
     }>;
-    updatePermissions(id: string, body: any): Promise<{
-        id: string;
-        email: string;
-        name: string;
-        passwordHash: string;
-        role: import(".prisma/client").$Enums.UserRole;
-        isActive: boolean;
-        permissions: import("@prisma/client/runtime/library").JsonValue | null;
-        phone: string | null;
-        whatsappApiKey: string | null;
-        clientId: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-    }>;
-    updateContact(id: string, body: any): Promise<{
-        id: string;
-        email: string;
-        name: string;
-        passwordHash: string;
-        role: import(".prisma/client").$Enums.UserRole;
-        isActive: boolean;
-        permissions: import("@prisma/client/runtime/library").JsonValue | null;
-        phone: string | null;
-        whatsappApiKey: string | null;
-        clientId: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-    }>;
+    updateUser(id: string, body: any): Promise<any>;
+    updatePermissions(id: string, body: any): Promise<any>;
+    updateContact(id: string, body: any): Promise<any>;
     resetPassword(id: string, body: any): Promise<{
         success: boolean;
     }>;
-    updateStatus(id: string, body: any): Promise<{
-        id: string;
-        email: string;
-        name: string;
-        passwordHash: string;
-        role: import(".prisma/client").$Enums.UserRole;
-        isActive: boolean;
-        permissions: import("@prisma/client/runtime/library").JsonValue | null;
-        phone: string | null;
-        whatsappApiKey: string | null;
-        clientId: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-    }>;
-    profile(req: any): Promise<{
-        id: string;
-        email: string;
-        name: string;
-        role: import(".prisma/client").$Enums.UserRole;
-        isActive: boolean;
-        permissions: import("@prisma/client/runtime/library").JsonValue;
-        phone: string;
-        whatsappApiKey: string;
-        clientId: string;
+    updateStatus(id: string, body: any): Promise<any>;
+    profile(req: any): Promise<any>;
+    descargasSso(req: any): Promise<{
+        url: string;
     }>;
 }
