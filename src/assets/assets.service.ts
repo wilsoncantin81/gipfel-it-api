@@ -12,8 +12,12 @@ export class AssetsService {
     if (q.clientId) where.clientId = q.clientId;
     if (q.status) where.status = q.status;
 
-    let ids = Array.isArray(q.assetTypeId) ? q.assetTypeId : [q.assetTypeId];
-    where.assetTypeId = ids?.length === 1 ? ids[0] : { in: ids };
+    if (q.assetTypeId) {
+      const ids = Array.isArray(q.assetTypeId) ? q.assetTypeId : [q.assetTypeId];
+      const filtered = ids.filter(Boolean);
+      if (filtered.length === 1) where.assetTypeId = filtered[0];
+      else if (filtered.length > 1) where.assetTypeId = { in: filtered };
+    }
 
     if (q.search)
       where.OR = [
