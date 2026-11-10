@@ -170,262 +170,264 @@ export class ReportsService {
     } catch { return null; }
   }
 
+  private buildReportContext(rpt: any) {
+    const client = (rpt as any).client;
+    const technician = (rpt as any).technician;
+    const assets = (rpt as any).assets || [];
+    const dateStr = new Date(rpt.date).toLocaleDateString('es-CO', {
+      year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Bogota',
+    });
+    return { client, technician, assets, dateStr };
+  }
+
+
+  // ════════════════════════════════════════════════════════════════
+  //  PDF  —  diseño corporativo con PDFKit
+  // ════════════════════════════════════════════════════════════════
   async getPDF(id: string) {
     const rpt = await this.findOne(id);
     if (!rpt) throw new Error('Report not found');
+    const { client, technician, assets, dateStr } = this.buildReportContext(rpt);
 
     const PDFDocument = require('pdfkit');
     const doc = new PDFDocument({ margin: 0, size: 'A4', autoFirstPage: true });
     const chunks: Buffer[] = [];
     doc.on('data', (c: Buffer) => chunks.push(c));
 
-    const blue = '#0A4F8C';
-    const lightBlue = '#00AEEF';
-    const white = '#FFFFFF';
-    const lightGray = '#F5F5F5';
-    const darkGray = '#333333';
     const pageW = 595.28;
-    const margin = 40;
-    const cw = pageW - margin * 2;
-    const client = (rpt as any).client;
-    const technician = (rpt as any).technician;
-    const assets = (rpt as any).assets || [];
+    const pageH = 841.89;
+    const mg = 36;
+    const cw = pageW - mg * 2;
 
-    // ── HEADER ──────────────────────────────────────────
-    doc.rect(0, 0, pageW, 105).fill(white);
-    doc.rect(0, 0, pageW, 105).stroke('#DDDDDD');
+    // ── BRAND COLORS ──────────────────────────────────────────────
+    const navy   = '#0A4F8C';   // Gipfel blue
+    const cyan   = '#00AEEF';   // Gipfel cyan accent
+    const dark   = '#1a2332';
+    const gray1  = '#f8fafc';   // lightest bg
+    const gray2  = '#e2e8f0';   // border/divider
+    const gray3  = '#64748b';   // body text secondary
+    const white  = '#ffffff';
+
+    let y = 0;
+
+    // ─────────────────────────────────────────────────────────────
+    //  HEADER BAND  (full-width dark blue → cyan gradient look)
+    // ─────────────────────────────────────────────────────────────
+    const headerH = 90;
+    doc.rect(0, 0, pageW, headerH).fill(navy);
+
+    // cyan accent strip (bottom of header)
+    doc.rect(0, headerH - 4, pageW, 4).fill(cyan);
 
     // Logo
-    try { doc.image(LOGO_B64, margin, 15, { height: 70, fit: [180, 70] }); } catch(e) { console.error('Logo error:', e); }
+    try {
+      const logoBuf = await this.fetchImageBuffer(COMPANY.logoUrl);
+      if (logoBuf) {
+        doc.image(logoBuf, mg, 14, { height: 42, fit: [140, 42] });
+      }
+    } catch {}
 
-    // Company info
-    doc.fillColor(blue).fontSize(8).font('Helvetica-Bold')
-      .text(COMPANY.name, pageW - 200, 18, { width: 165, align: 'right' });
-    doc.font('Helvetica').fontSize(7.5)
-      .text(COMPANY.address, pageW - 200, 30, { width: 165, align: 'right' })
-      .text(`Tel: ${COMPANY.phone} | Cel: ${COMPANY.mobile}`, pageW - 200, 42, { width: 165, align: 'right' })
-      .text(COMPANY.email, pageW - 200, 54, { width: 165, align: 'right' })
-      .text(COMPANY.web, pageW - 200, 66, { width: 165, align: 'right' });
+    // Company name right side
+    doc.fillColor(white).fontSize(8).font('Helvetica')
+      .text(COMPANY.web, pageW - mg - 150, 22, { width: 150, align: 'right' })
+      .text(COMPANY.phone + ' | ' + COMPANY.mobile, pageW - mg - 150, 34, { width: 150, align: 'right' })
+      .text(COMPANY.email, pageW - mg - 150, 46, { width: 150, align: 'right' });
 
-    // Title bar
-    doc.rect(0, 105, pageW, 28).fill(lightBlue);
-    doc.fillColor(white).fontSize(12).font('Helvetica-Bold')
-      .text('REPORTE DE SERVICIO TÉCNICO', margin, 114, { width: cw, align: 'center' });
+    // Document type label
+    doc.fillColor('#b0d4f1').fontSize(7.5).font('Helvetica-Bold')
+      .text('REPORTE DE SERVICIO TÉCNICO', mg, 66, { width: 200 });
 
-    let y = 143;
+    y = headerH + 4;
 
-    // ── INFO BOXES ───────────────────────────────────────
-    const drawBox = (x: number, bY: number, w: number, h: number, label: string, value: string, bg: string) => {
-      doc.rect(x, bY, w, h).fill(bg).stroke('#CCCCCC');
-      doc.fillColor(blue).fontSize(6.5).font('Helvetica-Bold')
-        .text(label, x + 5, bY + 4, { width: w - 10 });
-      doc.fillColor(darkGray).fontSize(8.5).font('Helvetica')
-        .text(value, x + 5, bY + 14, { width: w - 10 });
+    // ─────────────────────────────────────────────────────────────
+    //  REPORT NUMBER RIBBON
+    // ─────────────────────────────────────────────────────────────
+    const ribbonH = 30;
+    doc.rect(0, y, pageW, ribbonH).fill(cyan);
+    doc.fillColor(white).fontSize(14).font('Helvetica-Bold')
+      .text(rpt.reportNumber, 0, y + 8, { width: pageW * 0.5, align: 'center' });
+    // Status badge right
+    const statusLabel = rpt.status || 'CERRADO';
+    doc.fillColor(white).fontSize(8).font('Helvetica')
+      .text('Estado: ' + statusLabel, pageW * 0.5, y + 11, { width: pageW * 0.5 - mg, align: 'right' });
+    y += ribbonH + 12;
+
+    // ─────────────────────────────────────────────────────────────
+    //  INFO GRID  (2×3)
+    // ─────────────────────────────────────────────────────────────
+    const drawInfoGrid = (cells: Array<{label:string;value:string}>) => {
+      const cols = 2;
+      const cellW = cw / cols;
+      const cellH = 34;
+      let gx = mg;
+      cells.forEach((cell, i) => {
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        gx = mg + col * cellW;
+        const gy = y + row * (cellH + 2);
+        const bg = (i % 2 === 0) ? gray1 : white;
+        doc.rect(gx, gy, cellW - 2, cellH).fill(bg).stroke(gray2);
+        // Top accent bar
+        doc.rect(gx, gy, cellW - 2, 3).fill(navy);
+        doc.fillColor(gray3).fontSize(6.5).font('Helvetica-Bold')
+          .text(cell.label.toUpperCase(), gx + 8, gy + 7, { width: cellW - 16 });
+        doc.fillColor(dark).fontSize(9).font('Helvetica')
+          .text(cell.value || '–', gx + 8, gy + 18, { width: cellW - 16, lineBreak: false });
+      });
+      const rows = Math.ceil(cells.length / cols);
+      y += rows * (cellH + 2) + 10;
     };
 
-    const col = cw / 3;
-    const boxH = 28;
+    drawInfoGrid([
+      { label: 'Fecha',          value: dateStr },
+      { label: 'Tipo de Servicio', value: SERVICE_TYPES[rpt.serviceType] || rpt.serviceType || '–' },
+      { label: 'Cliente',        value: client?.businessName || '–' },
+      { label: 'Técnico Asignado', value: technician?.name || '–' },
+      { label: 'Contacto / Recibe', value: (rpt as any).receivedBy || client?.contactName || '–' },
+      { label: 'Dirección',      value: client?.address || '–' },
+    ]);
 
-    // Row 1
-    const row1 = [
-      ['N° REPORTE', rpt.reportNumber],
-            ['FECHA', new Date(rpt.date).toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Bogota' })],
-      ['TIPO DE SERVICIO', SERVICE_TYPES[rpt.serviceType] || rpt.serviceType],
-    ];
-    row1.forEach(([l, v], i) => drawBox(margin + i * col, y, col - 3, boxH, l, v, i % 2 === 0 ? lightGray : white));
-    y += boxH + 3;
-
-    // Row 2
-    const row2 = [
-      ['CLIENTE', client?.businessName || '–'],
-      ['TÉCNICO', technician?.name || '–'],
-      ['RECIBE', (rpt as any).receivedBy || client?.contactName || '–'],
-    ];
-    row2.forEach(([l, v], i) => drawBox(margin + i * col, y, col - 3, boxH, l, v, i % 2 === 0 ? white : lightGray));
-    y += boxH + 8;
-
-    // ── SECTION HELPERS ──────────────────────────────────
+    // ─────────────────────────────────────────────────────────────
+    //  SECTION HELPER
+    // ─────────────────────────────────────────────────────────────
     const section = (title: string) => {
-      doc.rect(margin, y, cw, 18).fill(blue);
-      doc.fillColor(white).fontSize(8).font('Helvetica-Bold')
-        .text(title, margin + 6, y + 5, { width: cw - 12 });
+      if (y + 50 > pageH - 60) { doc.addPage(); y = 36; }
+      doc.rect(mg, y, cw, 20).fill(navy);
+      doc.fillColor(white).fontSize(8.5).font('Helvetica-Bold')
+        .text(title, mg + 10, y + 6, { width: cw - 20 });
       y += 22;
     };
 
     const textBlock = (text: string) => {
-      const h = Math.max(doc.heightOfString(text, { width: cw - 16 }) + 10, 22);
-      doc.rect(margin, y, cw, h).fill(lightGray).stroke('#DDDDDD');
-      doc.fillColor(darkGray).fontSize(8.5).font('Helvetica')
-        .text(text, margin + 8, y + 5, { width: cw - 16 });
-      y += h + 5;
+      const textH = Math.max(doc.heightOfString(text, { width: cw - 20 }) + 16, 28);
+      if (y + textH + 40 > pageH - 60) { doc.addPage(); y = 36; }
+      doc.rect(mg, y, cw, textH).fill(gray1).stroke(gray2);
+      doc.fillColor(dark).fontSize(8.5).font('Helvetica')
+        .text(text, mg + 10, y + 8, { width: cw - 20 });
+      y += textH + 6;
     };
 
-    // ── CONTENT ──────────────────────────────────────────
-                section('DESCRIPCIÓN DEL SERVICIO');
+    // ─────────────────────────────────────────────────────────────
+    //  CONTENT SECTIONS
+    // ─────────────────────────────────────────────────────────────
+    section('DESCRIPCIÓN DEL SERVICIO');
     textBlock(rpt.description || '–');
 
     if (rpt.observations) {
       section('TRABAJO REALIZADO');
-            textBlock(rpt.observations);
+      textBlock(rpt.observations);
     }
 
     if (rpt.conclusion) {
-      section('CONCLUSIÓN');
+      section('CONCLUSIONES Y RECOMENDACIONES');
       textBlock(rpt.conclusion);
     }
 
-    // Assets table
+    // ─────────────────────────────────────────────────────────────
+    //  ASSETS TABLE
+    // ─────────────────────────────────────────────────────────────
     if (assets.length > 0) {
       section('EQUIPOS INTERVENIDOS');
-      const cols = [cw * 0.35, cw * 0.2, cw * 0.22, cw * 0.23];
-      const heads = ['Equipo', 'Tipo', 'Marca/Modelo', 'Serial'];
-      doc.rect(margin, y, cw, 16).fill(lightBlue);
-      let tx = margin;
+      const colW = [cw * 0.28, cw * 0.17, cw * 0.20, cw * 0.14, cw * 0.21];
+      const heads = ['Equipo / Nombre', 'Tipo', 'Marca · Modelo', 'Serial', 'Trabajo Realizado'];
+      const thH = 18;
+      doc.rect(mg, y, cw, thH).fill(cyan);
+      let tx = mg;
       heads.forEach((h, i) => {
-        doc.fillColor(white).fontSize(7.5).font('Helvetica-Bold').text(h, tx + 4, y + 4, { width: cols[i] - 8 });
-        tx += cols[i];
+        doc.fillColor(white).fontSize(7).font('Helvetica-Bold').text(h, tx + 4, y + 5, { width: colW[i] - 8 });
+        tx += colW[i];
       });
-      y += 16;
+      y += thH;
+
       assets.forEach((ra: any, ri: number) => {
         const a = ra.asset;
-        const rh = 16;
-        if (y + rh + 40 > 820) { doc.addPage(); y = 40; }
-        doc.rect(margin, y, cw, rh).fill(ri % 2 === 0 ? white : lightGray).stroke('#DDDDDD');
-        tx = margin;
-        [a?.name || '-', a?.assetType?.name || '-', `${a?.brand || ''} ${a?.model || ''}`.trim() || '-', a?.serial || '-'].forEach((v, i) => {
-          doc.fillColor(darkGray).fontSize(7.5).font('Helvetica').text(v, tx + 4, y + 4, { width: cols[i] - 8 });
-          tx += cols[i];
+        const rowH = 18;
+        if (y + rowH + 50 > pageH - 60) { doc.addPage(); y = 36; }
+        const rowBg = ri % 2 === 0 ? white : gray1;
+        doc.rect(mg, y, cw, rowH).fill(rowBg).stroke(gray2);
+        tx = mg;
+        const vals = [
+          a?.name || '–',
+          a?.assetType?.name || '–',
+          `${a?.brand || ''}${a?.model ? ' ' + a.model : ''}`.trim() || '–',
+          a?.serial || '–',
+          ra.workDetail || '–',
+        ];
+        vals.forEach((v, i) => {
+          doc.fillColor(dark).fontSize(7.5).font('Helvetica').text(v, tx + 4, y + 5, { width: colW[i] - 8, lineBreak: false });
+          tx += colW[i];
         });
-        y += rh;
-        if (ra.workDetail) {
-          const wLabel = `Trabajo realizado: ${ra.workDetail}`;
-          const wh = Math.max(doc.heightOfString(wLabel, { width: cw - 16 }) + 10, 18);
-          if (y + wh + 40 > 820) { doc.addPage(); y = 40; }
-          doc.rect(margin, y, cw, wh).fill('#EAF2FB').stroke('#DDDDDD');
-          doc.fillColor(darkGray).fontSize(7).font('Helvetica').text(wLabel, margin + 8, y + 5, { width: cw - 16 });
-          y += wh;
-        }
+        y += rowH;
       });
-      y += 5;
-    }
-      
-
-    // ── SIGNATURES ───────────────────────────────────────
-    const sigH = 100; // total height needed for signatures
-    if (y + sigH + 40 > 820) {
-      doc.addPage();
-      y = 40;
+      y += 8;
     }
 
-    y += 8;
-    section('FIRMAS');
+    // ─────────────────────────────────────────────────────────────
+    //  SIGNATURES
+    // ─────────────────────────────────────────────────────────────
+    const sigTotalH = 110;
+    if (y + sigTotalH + 50 > pageH - 60) { doc.addPage(); y = 36; }
+    section('CONFORMIDAD Y FIRMAS');
 
-    const sigW = cw / 2 - 8;
-    const sigBoxH = 65;
+    const sigW = (cw - 12) / 2;
+    const sigBoxH = 60;
 
-    // Client
-    doc.rect(margin, y, sigW, sigBoxH).stroke('#CCCCCC');
+    // Client signature box
+    doc.rect(mg, y, sigW, sigBoxH).fill(white).stroke(gray2);
     if (rpt.signatureUrl) {
       try {
-                const sigBuf = Buffer.from(rpt.signatureUrl.replace(/^data:image\/\w+;base64,/, ''), 'base64');
-        doc.image(sigBuf, margin + 4, y + 4, { fit: [sigW - 8, sigBoxH - 8] });
+        const sigBuf = Buffer.from(rpt.signatureUrl.replace(/^data:image\/\w+;base64,/, ''), 'base64');
+        doc.image(sigBuf, mg + 6, y + 4, { fit: [sigW - 12, sigBoxH - 8] });
       } catch {}
     }
-    doc.rect(margin, y + sigBoxH, sigW, 22).fill(lightGray).stroke('#CCCCCC');
-    doc.fillColor(blue).fontSize(7).font('Helvetica-Bold').text('FIRMA CLIENTE', margin + 4, y + sigBoxH + 4, { width: sigW - 8 });
-    doc.fillColor(darkGray).fontSize(8).font('Helvetica').text((rpt as any).receivedBy || client?.contactName || client?.businessName || '–', margin + 4, y + sigBoxH + 13, { width: sigW - 8 });
+    // Client label bar
+    doc.rect(mg, y + sigBoxH, sigW, 24).fill(navy);
+    doc.fillColor(cyan).fontSize(6.5).font('Helvetica-Bold')
+      .text('FIRMA DEL CLIENTE', mg + 8, y + sigBoxH + 4, { width: sigW - 16 });
+    doc.fillColor(white).fontSize(8.5).font('Helvetica')
+      .text((rpt as any).receivedBy || client?.contactName || client?.businessName || '–',
+        mg + 8, y + sigBoxH + 13, { width: sigW - 16 });
 
-    // Technician
-    const tx2 = margin + sigW + 16;
-    doc.rect(tx2, y, sigW, sigBoxH).stroke('#CCCCCC');
-    doc.rect(tx2, y + sigBoxH, sigW, 22).fill(lightGray).stroke('#CCCCCC');
-    doc.fillColor(blue).fontSize(7).font('Helvetica-Bold').text('FIRMA TÉCNICO', tx2 + 4, y + sigBoxH + 4, { width: sigW - 8 });
-    doc.fillColor(darkGray).fontSize(8).font('Helvetica').text(technician?.name || '–', tx2 + 4, y + sigBoxH + 13, { width: sigW - 8 });
+    // Technician signature box
+    const tx2 = mg + sigW + 12;
+    doc.rect(tx2, y, sigW, sigBoxH).fill(white).stroke(gray2);
+    // dashed line for tech signature
+    doc.moveTo(tx2 + 10, y + sigBoxH - 10).lineTo(tx2 + sigW - 10, y + sigBoxH - 10)
+      .dash(3, { space: 2 }).stroke(gray2).undash();
+    doc.rect(tx2, y + sigBoxH, sigW, 24).fill(navy);
+    doc.fillColor(cyan).fontSize(6.5).font('Helvetica-Bold')
+      .text('FIRMA DEL TÉCNICO', tx2 + 8, y + sigBoxH + 4, { width: sigW - 16 });
+    doc.fillColor(white).fontSize(8.5).font('Helvetica')
+      .text(technician?.name || '–', tx2 + 8, y + sigBoxH + 13, { width: sigW - 16 });
 
-    y += sigBoxH + 22 + 12;
+    y += sigBoxH + 24 + 10;
 
-    // ── FOOTER ───────────────────────────────────────────
-    doc.moveTo(margin, y).lineTo(pageW - margin, y).stroke('#CCCCCC');
-    doc.fillColor(darkGray).fontSize(6.5).font('Helvetica')
-      .text(`${COMPANY.name} | ${COMPANY.address} | Tel: ${COMPANY.phone} | Cel: ${COMPANY.mobile} | ${COMPANY.email} | ${COMPANY.web}`, margin, y + 5, { width: cw, align: 'center' })
-      .text(`Documento generado el ${new Date().toLocaleDateString('es-CO')}`, margin, y + 15, { width: cw, align: 'center' });
+    // ─────────────────────────────────────────────────────────────
+    //  FOOTER
+    // ─────────────────────────────────────────────────────────────
+    const footerY = pageH - 40;
+    doc.rect(0, footerY - 2, pageW, 42).fill(dark);
+    doc.rect(0, footerY - 2, pageW, 3).fill(cyan);
+    doc.fillColor(white).fontSize(6.5).font('Helvetica')
+      .text(
+        `${COMPANY.name}  ·  ${COMPANY.address}  ·  Tel: ${COMPANY.phone}  ·  Cel: ${COMPANY.mobile}  ·  ${COMPANY.email}  ·  ${COMPANY.web}`,
+        mg, footerY + 4, { width: cw, align: 'center' }
+      )
+      .text(`Documento generado el ${new Date().toLocaleDateString('es-CO')}  ·  Documento válido como constancia de prestación del servicio`,
+        mg, footerY + 16, { width: cw, align: 'center' });
 
     doc.end();
     return new Promise<Buffer>((resolve) => doc.on('end', () => resolve(Buffer.concat(chunks))));
   }
 
-  async sendEmail(id: string, toEmail?: string, cc?: string) {
+async sendEmail(id: string, toEmail?: string, cc?: string) {
     const rpt = await this.findOne(id);
     if (!rpt) throw new Error('Report not found');
-    const client = (rpt as any).client;
-    const technician = (rpt as any).technician;
-    const assets = (rpt as any).assets || [];
+    const { client, technician, assets, dateStr } = this.buildReportContext(rpt);
     const recipient = toEmail || client?.email;
     if (!recipient) throw new Error('No hay correo destinatario');
 
-const assetsHtml = assets.length > 0 ? `
-<table style="width:100%;border-collapse:collapse;margin-top:8px">
-<tr style="background:#00AEEF;color:white">
-<th style="padding:6px;text-align:left">Equipo</th>
-<th style="padding:6px;text-align:left">Tipo</th>
-<th style="padding:6px;text-align:left">Serial</th>
-<th style="padding:6px;text-align:left">Trabajo Realizado</th>
-</tr>
-${assets.map((ra: any, i: number) => `
-<tr style="background:${i % 2 === 0 ? '#f9f9f9' : 'white'}">
-<td style="padding:6px;border-bottom:1px solid #eee">${ra.asset?.name || '-'}</td>
-<td style="padding:6px;border-bottom:1px solid #eee">${ra.asset?.assetType?.name || '-'}</td>
-<td style="padding:6px;border-bottom:1px solid #eee">${ra.asset?.serial || '-'}</td>
-<td style="padding:6px;border-bottom:1px solid #eee">${ra.workDetail || '-'}</td>
-</tr>`).join('')}
-</table>` : '<p style="color:#888">Sin equipos registrados</p>';
-    
-    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
-<body style="font-family:Arial,sans-serif;margin:0;padding:0;background:#f4f4f4">
-  <div style="max-width:600px;margin:20px auto;background:white;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
-    <div style="background:#ffffff;padding:24px;text-align:center;border-bottom:3px solid #00AEEF">
-            <img src="${COMPANY.logoUrl}" style="height:70px;margin-bottom:12px" onerror="this.style.display='none'">
-      <h1 style="color:#0A4F8C;margin:0;font-size:18px;font-weight:bold">Reporte de Servicio Técnico</h1>
-    </div>
-    <div style="background:#00AEEF;padding:10px 24px;text-align:center">
-      <span style="color:white;font-weight:bold;font-size:16px">${rpt.reportNumber}</span>
-    </div>
-    <div style="padding:24px">
-      <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
-        <tr>
-                    <td style="padding:8px;background:#f5f5f5;width:50%"><strong style="color:#0A4F8C">Fecha:</strong><br>${new Date(rpt.date).toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Bogota' })}</td>
-          <td style="padding:8px;background:white;width:50%"><strong style="color:#0A4F8C">Tipo de Servicio:</strong><br>${SERVICE_TYPES[rpt.serviceType] || rpt.serviceType}</td>
-        </tr>
-        <tr>
-          <td style="padding:8px;background:white"><strong style="color:#0A4F8C">Cliente:</strong><br>${client?.businessName || '–'}</td>
-          <td style="padding:8px;background:#f5f5f5"><strong style="color:#0A4F8C">Técnico:</strong><br>${technician?.name || '–'}</td>
-        </tr>
-        <tr>
-          <td style="padding:8px;background:#f5f5f5" colspan="2"><strong style="color:#0A4F8C">Persona que recibe:</strong> ${(rpt as any).receivedBy || client?.contactName || '–'}</td>
-        </tr>
-      </table>
-      <div style="background:#f5f5f5;border-left:4px solid #0A4F8C;padding:12px;margin-bottom:16px;border-radius:0 4px 4px 0">
-        <strong style="color:#0A4F8C">Descripción del Servicio:</strong>
-        <p style="margin:8px 0 0;color:#333">${rpt.description}</p>
-      </div>
-      ${rpt.observations ? `<div style="background:#f5f5f5;border-left:4px solid #00AEEF;padding:12px;margin-bottom:16px;border-radius:0 4px 4px 0">
-        <strong style="color:#0A4F8C">Trabajo Realizado:</strong>
-                <p style="margin:8px 0 0;color:#333">${rpt.observations}</p>
-      </div>` : ''}
-              ${rpt.conclusion ? `<div style="background:#fff3cd;border-left:4px solid #ffc107;padding:12px;margin-bottom:16px;border-radius:0 4px 4px 0">
-        <strong style="color:#856404">Conclusión:</strong>
-                <p style="margin:8px 0 0;color:#333">${rpt.conclusion}</p>
-      </div>` : ''}
-      <strong style="color:#0A4F8C">Equipos Intervenidos:</strong>
-      ${assetsHtml}
-    </div>
-    <div style="background:#0A4F8C;padding:16px;text-align:center">
-      <p style="color:#00AEEF;margin:0;font-size:12px">${COMPANY.name}</p>
-      <p style="color:white;margin:4px 0;font-size:11px">${COMPANY.address} | ${COMPANY.phone} | ${COMPANY.mobile}</p>
-      <p style="color:white;margin:0;font-size:11px">${COMPANY.email} | ${COMPANY.web}</p>
-    </div>
-  </div>
-</body></html>`;
+    const html = this.buildHtml(rpt);
 
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -434,7 +436,7 @@ ${assets.map((ra: any, i: number) => `
         from: 'Gipfel IT <soporte@grupogipfel.com>',
         to: recipient,
         cc: cc || undefined,
-        subject: `Reporte de Servicio ${rpt.reportNumber} - ${client?.businessName || ''}`,
+        subject: `Reporte de Servicio ${rpt.reportNumber} · ${client?.businessName || ''}`,
         html,
       }),
     });
@@ -444,7 +446,7 @@ ${assets.map((ra: any, i: number) => `
       throw new Error(`Error enviando correo: ${err}`);
     }
 
-          await this.prisma.serviceReport.update({ where: { id }, data: { sentAt: new Date() } });
+    await this.prisma.serviceReport.update({ where: { id }, data: { sentAt: new Date() } });
     return { sent: true, to: recipient };
   }
 
@@ -452,44 +454,116 @@ ${assets.map((ra: any, i: number) => `
     const client = (rpt as any).client;
     const technician = (rpt as any).technician;
     const assets = (rpt as any).assets || [];
-    const assetsHtml = assets.length > 0
-    ? `<table style="width:100%;border-collapse:collapse;margin-top:8px"><tr style="background:#00AEEF;color:white"><th style="padding:6px;text-align:left">Equipo</th><th style="padding:6px;text-align:left">Tipo</th><th style="padding:6px;text-align:left">Serial</th></tr>${assets.map((ra: any, i: number) => `<tr style="background:${i % 2 === 0 ? '#f9f9f9' : 'white'}"><td style="padding:6px;border-bottom:1px solid #eee">${ra.asset?.name || '-'}</td><td style="padding:6px;border-bottom:1px solid #eee">${ra.asset?.assetType?.name || '-'}</td><td style="padding:6px;border-bottom:1px solid #eee">${ra.asset?.serial || '-'}</td></tr>`).join('')}</table>`
-      : '<p style="color:#888">Sin equipos registrados</p>';
-    return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
-    <body style="font-family:Arial,sans-serif;margin:0;padding:0;background:#f4f4f4">
-    <div style="max-width:600px;margin:20px auto;background:white;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
-    <div style="background:#0A4F8C;padding:24px;text-align:center;border-bottom:3px solid #00AEEF">
-    <h1 style="color:white;margin:0;font-size:18px;font-weight:bold">Reporte de Servicio Técnico</h1>
+    const dateStr = new Date(rpt.date).toLocaleDateString('es-CO', {
+      year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Bogota',
+    });
+
+    const infoRow = (label: string, value: string, shade = false) =>
+      `<tr><td style="padding:10px 14px;background:${shade ? '#f1f5f9' : '#ffffff'};width:36%;color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #e2e8f0">${label}</td>` +
+      `<td style="padding:10px 14px;background:${shade ? '#f1f5f9' : '#ffffff'};color:#1a2332;font-size:13px;border-bottom:1px solid #e2e8f0">${value || '–'}</td></tr>`;
+
+    const section = (title: string, content: string) =>
+      `<div style="margin-bottom:20px"><div style="background:#0A4F8C;padding:10px 16px;border-radius:4px 4px 0 0"><span style="color:#ffffff;font-size:12px;font-weight:700;letter-spacing:.8px;text-transform:uppercase">${title}</span></div>` +
+      `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-top:none;padding:14px 16px;border-radius:0 0 4px 4px;color:#1a2332;font-size:13px;line-height:1.6">${content}</div></div>`;
+
+    const assetsRows = assets.length > 0
+      ? assets.map((ra: any, i: number) => {
+          const a = ra.asset;
+          const bg = i % 2 === 0 ? '#f8fafc' : '#ffffff';
+          return `<tr style="background:${bg}">` +
+            `<td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#1a2332">${a?.name || '–'}</td>` +
+            `<td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#64748b">${a?.assetType?.name || '–'}</td>` +
+            `<td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#64748b">${a?.serial || '–'}</td>` +
+            `<td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#64748b">${ra.workDetail || '–'}</td>` +
+            `</tr>`;
+        }).join('')
+      : `<tr><td colspan="4" style="padding:12px;text-align:center;color:#94a3b8;font-size:12px">Sin equipos registrados</td></tr>`;
+
+    const signatureBlock = rpt.signatureUrl
+      ? `<div style="text-align:center;margin-top:6px"><img src="${rpt.signatureUrl}" style="max-width:160px;max-height:60px;border:1px solid #e2e8f0;border-radius:4px;padding:4px;background:#fff" /></div>`
+      : `<div style="height:50px;border:1px dashed #cbd5e1;border-radius:4px;margin-top:6px;background:#f8fafc"></div>`;
+
+    return `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Reporte ${rpt.reportNumber}</title></head>
+<body style="margin:0;padding:0;background:#edf2f7;font-family:'Segoe UI',Arial,sans-serif">
+<div style="max-width:620px;margin:28px auto 28px;border-radius:8px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.12)">
+
+  <!-- HEADER -->
+  <div style="background:#0A4F8C;padding:0">
+    <div style="padding:22px 28px 0;display:flex;align-items:center;justify-content:space-between">
+      <img src="${COMPANY.logoUrl}" style="height:46px" onerror="this.style.display='none'">
+      <div style="text-align:right">
+        <div style="color:#b0d4f1;font-size:10px">${COMPANY.web}</div>
+        <div style="color:#b0d4f1;font-size:10px">${COMPANY.phone} · ${COMPANY.mobile}</div>
+      </div>
     </div>
-    <div style="background:#00AEEF;padding:10px 24px;text-align:center">
-    <span style="color:white;font-weight:bold;font-size:16px">${rpt.reportNumber}</span>
+    <div style="background:#00AEEF;margin-top:16px;padding:12px 28px;display:flex;align-items:center;justify-content:space-between">
+      <span style="color:#ffffff;font-size:17px;font-weight:800;letter-spacing:.5px">${rpt.reportNumber}</span>
+      <span style="color:#0A4F8C;background:#ffffff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px">${SERVICE_TYPES[rpt.serviceType] || rpt.serviceType}</span>
     </div>
-    <div style="padding:24px">
-    <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
-    <tr>
-    <td style="padding:8px;background:#f5f5f5;width:50%"><strong style="color:#0A4F8C">Fecha:</strong><br>${new Date(rpt.date).toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Bogota' })}</td>
-    <td style="padding:8px;background:white;width:50%"><strong style="color:#0A4F8C">Tipo de Servicio:</strong><br>${SERVICE_TYPES[rpt.serviceType] || rpt.serviceType}</td>
-    </tr>
-    <tr>
-    <td style="padding:8px;background:white"><strong style="color:#0A4F8C">Cliente:</strong><br>${client?.businessName || '-'}</td>
-    <td style="padding:8px;background:#f5f5f5"><strong style="color:#0A4F8C">Técnico:</strong><br>${technician?.name || '-'}</td>
-    </tr>
+  </div>
+
+  <!-- BODY -->
+  <div style="background:#ffffff;padding:24px 28px">
+
+    <!-- INFO TABLE -->
+    <table style="width:100%;border-collapse:collapse;border-radius:6px;overflow:hidden;border:1px solid #e2e8f0;margin-bottom:22px">
+      ${infoRow('Fecha', dateStr, true)}
+      ${infoRow('Cliente', client?.businessName || '–')}
+      ${infoRow('Técnico', technician?.name || '–', true)}
+      ${infoRow('Recibe', (rpt as any).receivedBy || client?.contactName || '–')}
     </table>
-    <div style="background:#f5f5f5;border-left:4px solid #0A4F8C;padding:12px;margin-bottom:16px;border-radius:0 4px 4px 0">
-    <strong style="color:#0A4F8C">Descripción del Servicio:</strong>
-    <p style="margin:8px 0 0;color:#333">${rpt.description || '-'}</p>
+
+    <!-- CONTENT -->
+    ${section('Descripción del Servicio', rpt.description || '–')}
+    ${rpt.observations ? section('Trabajo Realizado', rpt.observations) : ''}
+    ${rpt.conclusion ? section('Conclusiones y Recomendaciones', rpt.conclusion) : ''}
+
+    <!-- ASSETS -->
+    <div style="margin-bottom:20px">
+      <div style="background:#0A4F8C;padding:10px 16px;border-radius:4px 4px 0 0">
+        <span style="color:#ffffff;font-size:12px;font-weight:700;letter-spacing:.8px;text-transform:uppercase">Equipos Intervenidos</span>
+      </div>
+      <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 4px 4px;overflow:hidden">
+        <tr style="background:#00AEEF">
+          <th style="padding:8px 10px;text-align:left;color:#ffffff;font-size:11px;font-weight:700">Equipo</th>
+          <th style="padding:8px 10px;text-align:left;color:#ffffff;font-size:11px;font-weight:700">Tipo</th>
+          <th style="padding:8px 10px;text-align:left;color:#ffffff;font-size:11px;font-weight:700">Serial</th>
+          <th style="padding:8px 10px;text-align:left;color:#ffffff;font-size:11px;font-weight:700">Trabajo Realizado</th>
+        </tr>
+        ${assetsRows}
+      </table>
     </div>
-    ${rpt.observations ? `<div style="background:#f5f5f5;border-left:4px solid #00AEEF;padding:12px;margin-bottom:16px;border-radius:0 4px 4px 0"><strong style="color:#0A4F8C">Trabajo Realizado:</strong><p style="margin:8px 0 0;color:#333">${rpt.observations}</p></div>` : ''}
-    ${rpt.conclusion ? `<div style="background:#fff3cd;border-left:4px solid #ffc107;padding:12px;margin-bottom:16px;border-radius:0 4px 4px 0"><strong style="color:#856404">Recomendaciones:</strong><p style="margin:8px 0 0;color:#333">${rpt.conclusion}</p></div>` : ''}
-    <strong style="color:#0A4F8C">Equipos Intervenidos:</strong>
-    ${assetsHtml}
+
+    <!-- SIGNATURE -->
+    <div style="margin-bottom:0">
+      <div style="background:#0A4F8C;padding:10px 16px;border-radius:4px 4px 0 0">
+        <span style="color:#ffffff;font-size:12px;font-weight:700;letter-spacing:.8px;text-transform:uppercase">Conformidad del Cliente</span>
+      </div>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-top:none;padding:14px 16px;border-radius:0 0 4px 4px">
+        <div style="display:flex;gap:16px;align-items:flex-start">
+          <div style="flex:1">
+            ${signatureBlock}
+            <div style="margin-top:6px;font-size:11px;color:#64748b;text-align:center">${(rpt as any).receivedBy || client?.contactName || client?.businessName || '–'}</div>
+          </div>
+        </div>
+      </div>
     </div>
-    <div style="background:#0A4F8C;padding:16px;text-align:center">
-    <p style="color:#00AEEF;margin:0;font-size:12px">${COMPANY.name}</p>
-    <p style="color:white;margin:4px 0;font-size:11px">${COMPANY.address} | ${COMPANY.phone} | ${COMPANY.mobile}</p>
-    <p style="color:white;margin:0;font-size:11px">${COMPANY.email} | ${COMPANY.web}</p>
+
+  </div>
+
+  <!-- FOOTER -->
+  <div style="background:#1a2332;padding:16px 28px;border-top:3px solid #00AEEF">
+    <div style="text-align:center;color:#94a3b8;font-size:11px;line-height:1.8">
+      <strong style="color:#00AEEF">${COMPANY.name}</strong><br>
+      ${COMPANY.address}<br>
+      ${COMPANY.phone} · ${COMPANY.mobile} · ${COMPANY.email}
     </div>
-    </div>
-    </body></html>`;
+  </div>
+
+</div>
+</body></html>`;
   }
+
 }
