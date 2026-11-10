@@ -20,6 +20,7 @@ model User {
   clientId           String?              @map("client_id")
   phone              String?
   whatsappApiKey     String?              @map("whatsapp_api_key")
+  signatureUrl       String?              @map("signature_url")
   activityLogs       ActivityLog[]
   commissions        Commission[]
   maintenanceRecords MaintenanceRecord[]

@@ -62,6 +62,12 @@ import { RolesGuard } from './roles.guard';
     @ApiBearerAuth()
     updateStatus(@Param('id') id: string, @Body() body: any) { return this.auth.updateStatus(id, body.isActive); }
 
+@Put('users/:id/signature')
+    @UseGuards(AuthGuard('jwt'), RolesGuard)
+    @Roles('ADMIN')
+    @ApiBearerAuth()
+    updateSignature(@Param('id') id: string, @Body() body: any) { return this.auth.updateSignature(id, body.signatureUrl); }
+
 @Get('me')
     @UseGuards(AuthGuard('jwt'))
     @ApiBearerAuth()

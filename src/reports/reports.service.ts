@@ -51,7 +51,7 @@ export class ReportsService {
       where: { id },
       include: {
         client: true,
-        technician: { select: { id: true, name: true } },
+        technician: { select: { id: true, name: true, signatureUrl: true } },
         assets: { include: { asset: { include: { assetType: true } } } },
       },
     });
@@ -219,11 +219,14 @@ export class ReportsService {
     // cyan accent strip (bottom of header)
     doc.rect(0, headerH - 4, pageW, 4).fill(cyan);
 
-    // Logo
+    // Logo con fondo blanco
     try {
       const logoBuf = await this.fetchImageBuffer(COMPANY.logoUrl);
       if (logoBuf) {
-        doc.image(logoBuf, mg, 14, { height: 42, fit: [140, 42] });
+        const logoW = 148, logoH = 50;
+        const logoX = mg - 4, logoY = 12;
+        doc.rect(logoX, logoY, logoW, logoH).fill(white);
+        doc.image(logoBuf, logoX + 4, logoY + 4, { height: logoH - 8, fit: [logoW - 8, logoH - 8] });
       }
     } catch {}
 
@@ -391,9 +394,19 @@ export class ReportsService {
     // Technician signature box
     const tx2 = mg + sigW + 12;
     doc.rect(tx2, y, sigW, sigBoxH).fill(white).stroke(gray2);
-    // dashed line for tech signature
-    doc.moveTo(tx2 + 10, y + sigBoxH - 10).lineTo(tx2 + sigW - 10, y + sigBoxH - 10)
-      .dash(3, { space: 2 }).stroke(gray2).undash();
+    // Firma digital del técnico (si existe) o línea punteada
+    if (technician?.signatureUrl) {
+      try {
+        const techSigBuf = Buffer.from(technician.signatureUrl.replace(/^data:image\/\w+;base64,/, ''), 'base64');
+        doc.image(techSigBuf, tx2 + 6, y + 4, { fit: [sigW - 12, sigBoxH - 8] });
+      } catch {
+        doc.moveTo(tx2 + 10, y + sigBoxH - 10).lineTo(tx2 + sigW - 10, y + sigBoxH - 10)
+          .dash(3, { space: 2 }).stroke(gray2).undash();
+      }
+    } else {
+      doc.moveTo(tx2 + 10, y + sigBoxH - 10).lineTo(tx2 + sigW - 10, y + sigBoxH - 10)
+        .dash(3, { space: 2 }).stroke(gray2).undash();
+    }
     doc.rect(tx2, y + sigBoxH, sigW, 24).fill(navy);
     doc.fillColor(cyan).fontSize(6.5).font('Helvetica-Bold')
       .text('FIRMA DEL TÉCNICO', tx2 + 8, y + sigBoxH + 4, { width: sigW - 16 });

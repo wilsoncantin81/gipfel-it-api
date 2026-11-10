@@ -61,7 +61,7 @@ const CLIENT_MODULES = ['activos', 'tickets', 'reportes', 'mantenimiento', 'dash
   }
 
   async getUsers() {
-        return this.prisma.user.findMany({ select: { id: true, name: true, email: true, role: true, isActive: true, permissions: true, clientId: true, phone: true, whatsappApiKey: true }, orderBy: { name: 'asc' } });
+        return this.prisma.user.findMany({ select: { id: true, name: true, email: true, role: true, isActive: true, permissions: true, clientId: true, phone: true, whatsappApiKey: true, signatureUrl: true }, orderBy: { name: 'asc' } });
   }
 
   async getTechnicians() {
@@ -87,6 +87,10 @@ const CLIENT_MODULES = ['activos', 'tickets', 'reportes', 'mantenimiento', 'dash
 
   async updateStatus(id: string, isActive: boolean) {
         return this.prisma.user.update({ where: { id }, data: { isActive } });
+  }
+
+  async updateSignature(id: string, signatureUrl: string | null) {
+        return this.prisma.user.update({ where: { id }, data: { signatureUrl: signatureUrl || null } });
   }
   async getDescargasSsoUrl(user: any) {
       const profile = await this.prisma.user.findUnique({ where: { id: user.sub }, select: { name: true } });
