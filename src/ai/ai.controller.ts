@@ -103,7 +103,7 @@ ${assetList}`;
 
 ACCIONES DISPONIBLES — cuando el usuario pida alguna de estas, responde ÚNICAMENTE con el JSON correspondiente, sin texto adicional:
 
-Crear ticket: {"action":"create_ticket","clientName":"...","title":"...","description":"...","priority":"MEDIA|ALTA|CRITICA|BAJA"}
+Crear ticket: {"action":"create_ticket","clientName":"...","title":"..."} — Solo clientName y title son obligatorios. description y priority son opcionales (priority por defecto MEDIA). NO pidas más datos al usuario, crea el ticket con lo que te dé.
 Crear reporte: {"action":"create_report","clientName":"...","description":"..."}
 Cambiar estado ticket: {"action":"change_ticket_status","ticketNumber":"TK-XXX","status":"NUEVO|EN_EJECUCION|POR_CONFIRMACION|PENDIENTE_WILSON|POR_FACTURACION|PENDIENTE_POR_PAGO|CERRADO"}
 Asignar técnico: {"action":"assign_ticket","ticketNumber":"TK-XXX","techName":"nombre del técnico"}
