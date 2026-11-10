@@ -184,7 +184,7 @@ export class AssetsService {
 
     // ── HEADER ──────────────────────────────────────────────────────
     const headerH = 90;
-    doc.rect(0, 0, pageW, headerH).fill(navy);
+    doc.rect(0, 0, pageW, headerH).fill(white);
     doc.rect(0, headerH - 4, pageW, 4).fill(cyan);
 
     try {
@@ -192,17 +192,16 @@ export class AssetsService {
       if (logoBuf) {
         const logoW = 148, logoH = 50;
         const logoX = mg - 4, logoY = 12;
-        doc.rect(logoX, logoY, logoW, logoH).fill(white);
         doc.image(logoBuf, logoX + 4, logoY + 4, { height: logoH - 8, fit: [logoW - 8, logoH - 8] });
       }
     } catch {}
 
-    doc.fillColor(white).fontSize(8).font('Helvetica')
+    doc.fillColor(navy).fontSize(8).font('Helvetica')
       .text(COMPANY.web, pageW - mg - 150, 22, { width: 150, align: 'right' })
       .text(COMPANY.phone + ' | ' + COMPANY.mobile, pageW - mg - 150, 34, { width: 150, align: 'right' })
       .text(COMPANY.email, pageW - mg - 150, 46, { width: 150, align: 'right' });
 
-    doc.fillColor('#b0d4f1').fontSize(7.5).font('Helvetica-Bold')
+    doc.fillColor(navy).fontSize(7.5).font('Helvetica-Bold')
       .text('HOJA DE VIDA DE ACTIVO TI', mg, 66, { width: 200 });
 
     y = headerH + 4;
