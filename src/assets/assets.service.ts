@@ -2,6 +2,20 @@
 import { PrismaService } from '../common/prisma.service';
 import * as ExcelJS from 'exceljs';
 import { encrypt, decrypt } from '../common/crypto.util';
+import * as https from 'https';
+import * as http from 'http';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const PDFDocument = require('pdfkit');
+
+const COMPANY = {
+  name: 'Grupo Gipfel',
+  address: 'Calle 96 #68F-24, Bogotá',
+  phone: '601 811 9749',
+  mobile: '311 503 5734',
+  email: 'info@grupogipfel.com',
+  web: 'www.grupogipfel.com',
+  logoUrl: 'https://www.grupogipfel.com/imagenes/logo-gipfel.png',
+};
 
 @Injectable()
 export class AssetsService {
@@ -123,190 +137,239 @@ export class AssetsService {
     return str;
   }
 
-  async getAssetPDF(id: string) {
+  private async fetchImageBuffer(url: string): Promise<Buffer | null> {
+    return new Promise((resolve) => {
+      const lib = url.startsWith('https') ? https : http;
+      lib.get(url, (res) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (c: Buffer) => chunks.push(c));
+        res.on('end', () => resolve(Buffer.concat(chunks)));
+        res.on('error', () => resolve(null));
+      }).on('error', () => resolve(null));
+    });
+  }
+
+  async getAssetPDF(id: string): Promise<Buffer> {
     const asset = await this.prisma.asset.findUnique({
       where: { id },
-      include: { client: true, assetType: true },
+      include: {
+        client: true,
+        assetType: true,
+        maintenanceRecords: {
+          include: { technician: { select: { name: true } } },
+          orderBy: { createdAt: 'desc' },
+        },
+      },
     });
 
     if (!asset) throw new Error('Asset not found');
 
-    const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Hoja de Vida - ${asset.code}</title>
-  <style>
-    * { margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f5f5; padding: 20px; }
-    .container { background: white; padding: 40px; max-width: 900px; margin: 0 auto; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 4px solid #002668;
-      padding-bottom: 20px;
-      margin-bottom: 30px;
-    }
-    .header-left h1 { color: #002668; font-size: 24px; }
-    .header-left p { color: #666; font-size: 14px; margin-top: 5px; }
-    .logo { text-align: right; }
-    .logo img { height: 60px; }
-    .section { margin-bottom: 25px; }
-    .section-title {
-      background: linear-gradient(135deg, #002668 0%, #003d99 100%);
-      color: white;
-      padding: 12px 15px;
-      font-weight: bold;
-      font-size: 14px;
-      margin-bottom: 15px;
-      border-radius: 4px;
-    }
-    .row {
-      display: flex;
-      padding: 10px 0;
-      border-bottom: 1px solid #e0e0e0;
-    }
-    .row:last-child { border-bottom: none; }
-    .label {
-      font-weight: 600;
-      width: 30%;
-      color: #002668;
-      font-size: 13px;
-    }
-    .value {
-      width: 70%;
-      color: #333;
-      font-size: 13px;
-    }
-    .status-badge {
-      display: inline-block;
-      padding: 4px 12px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: bold;
-    }
-    .status-ACTIVO { background: #d4edda; color: #155724; }
-    .status-EN_MANTENIMIENTO { background: #fff3cd; color: #856404; }
-    .status-DADO_DE_BAJA { background: #f8d7da; color: #721c24; }
-    .footer {
-      margin-top: 40px;
-      padding-top: 20px;
-      border-top: 2px solid #002668;
-      text-align: center;
-      color: #666;
-      font-size: 11px;
-    }
-    .company-info { margin-top: 10px; font-weight: bold; color: #002668; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <div class="header-left">
-        <h1>Hoja de Vida de Activo</h1>
-        <p>Código: <strong>${asset.code || 'N/A'}</strong></p>
-      </div>
-      <div class="logo">
-        <img src="https://www.grupogipfel.com/imagenes/logo-gipfel.png" alt="Grupo Gipfel">
-      </div>
-    </div>
+    const doc = new PDFDocument({ margin: 0, size: 'A4', autoFirstPage: true });
+    const chunks: Buffer[] = [];
+    doc.on('data', (c: Buffer) => chunks.push(c));
 
-    <div class="section">
-      <div class="section-title">📋 INFORMACIÓN GENERAL</div>
-      <div class="row">
-        <div class="label">Código:</div>
-        <div class="value">${asset.code || 'N/A'}</div>
-      </div>
-      <div class="row">
-        <div class="label">Nombre:</div>
-        <div class="value"><strong>${asset.name}</strong></div>
-      </div>
-      <div class="row">
-        <div class="label">Cliente:</div>
-        <div class="value">${asset.client?.businessName || 'N/A'}</div>
-      </div>
-      <div class="row">
-        <div class="label">Tipo de Activo:</div>
-        <div class="value">${asset.assetType?.name || 'N/A'}</div>
-      </div>
-      <div class="row">
-        <div class="label">Estado:</div>
-        <div class="value"><span class="status-badge status-${asset.status}">${asset.status}</span></div>
-      </div>
-    </div>
+    const pageW = 595.28;
+    const mg = 36;
+    const cw = pageW - mg * 2;
 
-    <div class="section">
-      <div class="section-title">🏷️ ESPECIFICACIONES TÉCNICAS</div>
-      <div class="row">
-        <div class="label">Marca:</div>
-        <div class="value">${asset.brand || 'N/A'}</div>
-      </div>
-      <div class="row">
-        <div class="label">Modelo:</div>
-        <div class="value">${asset.model || 'N/A'}</div>
-      </div>
-      <div class="row">
-        <div class="label">Serial:</div>
-        <div class="value">${asset.serial || 'N/A'}</div>
-      </div>
-      <div class="row">
-        <div class="label">Ubicación:</div>
-        <div class="value">${asset.location || 'N/A'}</div>
-      </div>
-    </div>
+    const navy  = '#0A4F8C';
+    const cyan  = '#00AEEF';
+    const gray1 = '#f8fafc';
+    const gray2 = '#e2e8f0';
+    const gray3 = '#64748b';
+    const white = '#ffffff';
+    const dark  = '#1a2332';
 
-    <div class="section">
-      <div class="section-title">📅 GARANTÍA Y MANTENIMIENTO</div>
-      <div class="row">
-        <div class="label">Fecha de Compra:</div>
-        <div class="value">${asset.purchaseDate ? new Date(asset.purchaseDate).toLocaleDateString('es-CO') : 'N/A'}</div>
-      </div>
-      <div class="row">
-        <div class="label">Garantía Hasta:</div>
-        <div class="value">${asset.warrantyUntil ? new Date(asset.warrantyUntil).toLocaleDateString('es-CO') : 'N/A'}</div>
-      </div>
-      <div class="row">
-        <div class="label">Próximo Mantenimiento:</div>
-        <div class="value">${asset.nextMaintenance ? new Date(asset.nextMaintenance).toLocaleDateString('es-CO') : 'N/A'}</div>
-      </div>
-    </div>
+    let y = 0;
 
-    <div class="section">
-      <div class="section-title">🌐 ACCESO REMOTO</div>
-      <div class="row">
-        <div class="label">Dirección IP:</div>
-        <div class="value">${asset.ipAddress || 'N/A'}</div>
-      </div>
-      <div class="row">
-        <div class="label">Dirección MAC:</div>
-        <div class="value">${asset.macAddress || 'N/A'}</div>
-      </div>
-      <div class="row">
-        <div class="label">Acceso Remoto:</div>
-        <div class="value">${asset.remoteAccess || 'No disponible'}</div>
-      </div>
-    </div>
+    // ── HEADER ──────────────────────────────────────────────────────
+    const headerH = 90;
+    doc.rect(0, 0, pageW, headerH).fill(navy);
+    doc.rect(0, headerH - 4, pageW, 4).fill(cyan);
 
-    <div class="section">
-      <div class="section-title">📝 NOTAS</div>
-      <div style="padding: 10px; background: #f9f9f9; border-left: 3px solid #002668; border-radius: 4px;">
-        ${asset.notes || '<em>Sin notas adicionales</em>'}
-      </div>
-    </div>
+    try {
+      const logoBuf = await this.fetchImageBuffer(COMPANY.logoUrl);
+      if (logoBuf) {
+        const logoW = 148, logoH = 50;
+        const logoX = mg - 4, logoY = 12;
+        doc.rect(logoX, logoY, logoW, logoH).fill(white);
+        doc.image(logoBuf, logoX + 4, logoY + 4, { height: logoH - 8, fit: [logoW - 8, logoH - 8] });
+      }
+    } catch {}
 
-    <div class="footer">
-      <div class="company-info">Grupo Gipfel</div>
-      <p>Calle 96 #68F-24, Bogotá | Tel: 601 811 9749 | Email: info@grupogipfel.com</p>
-      <p>Documento generado el ${new Date().toLocaleDateString('es-CO')} a las ${new Date().toLocaleTimeString('es-CO')}</p>
-    </div>
-  </div>
-</body>
-</html>
-    `;
+    doc.fillColor(white).fontSize(8).font('Helvetica')
+      .text(COMPANY.web, pageW - mg - 150, 22, { width: 150, align: 'right' })
+      .text(COMPANY.phone + ' | ' + COMPANY.mobile, pageW - mg - 150, 34, { width: 150, align: 'right' })
+      .text(COMPANY.email, pageW - mg - 150, 46, { width: 150, align: 'right' });
 
-    return html;
+    doc.fillColor('#b0d4f1').fontSize(7.5).font('Helvetica-Bold')
+      .text('HOJA DE VIDA DE ACTIVO TI', mg, 66, { width: 200 });
+
+    y = headerH + 4;
+
+    // ── RIBBON (nombre del activo) ───────────────────────────────────
+    const ribbonH = 30;
+    doc.rect(0, y, pageW, ribbonH).fill(cyan);
+    doc.fillColor(white).fontSize(13).font('Helvetica-Bold')
+      .text(asset.name, 0, y + 8, { width: pageW * 0.6, align: 'center' });
+    const statusLabel = { ACTIVO: 'ACTIVO', EN_MANTENIMIENTO: 'EN MANTENIMIENTO', DADO_DE_BAJA: 'DADO DE BAJA' }[asset.status] || asset.status;
+    const statusColor = { ACTIVO: '#16a34a', EN_MANTENIMIENTO: '#d97706', DADO_DE_BAJA: '#dc2626' }[asset.status] || '#64748b';
+    doc.rect(pageW * 0.75, y + 5, 110, 20).fill(statusColor);
+    doc.fillColor(white).fontSize(8).font('Helvetica-Bold')
+      .text(statusLabel, pageW * 0.75, y + 11, { width: 110, align: 'center' });
+    y += ribbonH + 10;
+
+    // ── HELPER: draw section header ──────────────────────────────────
+    const sectionHeader = (title: string) => {
+      doc.rect(mg, y, cw, 20).fill(navy);
+      doc.fillColor(white).fontSize(8.5).font('Helvetica-Bold')
+        .text(title, mg + 8, y + 6, { width: cw - 16 });
+      y += 22;
+    };
+
+    // ── HELPER: draw field row ───────────────────────────────────────
+    let rowAlt = false;
+    const fieldRow = (label: string, value: string) => {
+      const rh = 18;
+      if (y + rh > 800) { doc.addPage(); y = 36; }
+      if (rowAlt) doc.rect(mg, y, cw, rh).fill(gray1);
+      rowAlt = !rowAlt;
+      doc.fillColor(navy).fontSize(8).font('Helvetica-Bold')
+        .text(label, mg + 6, y + 5, { width: cw * 0.35 });
+      doc.fillColor(dark).fontSize(8).font('Helvetica')
+        .text(value || '–', mg + 6 + cw * 0.35, y + 5, { width: cw * 0.6 });
+      doc.rect(mg, y + rh - 0.5, cw, 0.5).fill(gray2);
+      y += rh;
+    };
+
+    const fmtDate = (d: Date | null | undefined) =>
+      d ? new Date(d).toLocaleDateString('es-CO') : '–';
+
+    // ── INFORMACIÓN GENERAL ─────────────────────────────────────────
+    sectionHeader('INFORMACIÓN GENERAL');
+    rowAlt = false;
+    fieldRow('Código / Inventario', asset.code || '–');
+    fieldRow('Nombre', asset.name);
+    fieldRow('Cliente', asset.client?.businessName || '–');
+    fieldRow('Tipo de activo', asset.assetType?.name || '–');
+    fieldRow('Estado', statusLabel);
+    fieldRow('Proveedor', asset.supplier || '–');
+    fieldRow('Usuario asignado', asset.assignedUser || '–');
+    fieldRow('Responsable', asset.responsible || '–');
+    fieldRow('Ubicación', asset.location || '–');
+    y += 6;
+
+    // ── ESPECIFICACIONES TÉCNICAS ────────────────────────────────────
+    sectionHeader('ESPECIFICACIONES TÉCNICAS');
+    rowAlt = false;
+    fieldRow('Marca', asset.brand || '–');
+    fieldRow('Modelo', asset.model || '–');
+    fieldRow('Serial / N° Serie', asset.serial || '–');
+
+    // Extra fields (dynFields + extraFields, excluding passwords)
+    const efRaw = (asset.extraFields as Record<string, string>) || {};
+    const dynRaw = (asset.dynFields as Record<string, string>) || {};
+    const allExtras: Record<string, string> = { ...efRaw, ...dynRaw };
+    for (const [k, v] of Object.entries(allExtras)) {
+      const kl = k.toLowerCase();
+      if (kl.includes('contrase') || kl.includes('password') || kl.includes('clave') || kl.includes('pass')) continue;
+      fieldRow(k, String(v));
+    }
+    y += 6;
+
+    // ── RED Y ACCESO ─────────────────────────────────────────────────
+    sectionHeader('RED Y ACCESO REMOTO');
+    rowAlt = false;
+    fieldRow('Dirección IP', asset.ipAddress || '–');
+    fieldRow('Dirección MAC', asset.macAddress || '–');
+    fieldRow('ID AnyDesk / Acceso Remoto', asset.remoteAccess || '–');
+    // Note: passwords intentionally excluded
+    y += 6;
+
+    // ── GARANTÍA Y FECHAS ────────────────────────────────────────────
+    sectionHeader('GARANTÍA Y FECHAS');
+    rowAlt = false;
+    fieldRow('Fecha de compra', fmtDate(asset.purchaseDate));
+    fieldRow('Garantía hasta', fmtDate(asset.warrantyUntil));
+    fieldRow('Próximo mantenimiento', fmtDate(asset.nextMaintenance));
+    y += 6;
+
+    // ── NOTAS ────────────────────────────────────────────────────────
+    if ((asset as any).notes) {
+      sectionHeader('NOTAS');
+      doc.rect(mg, y, cw, 2).fill(gray2);
+      y += 6;
+      doc.fillColor(dark).fontSize(8).font('Helvetica')
+        .text(String((asset as any).notes), mg + 8, y, { width: cw - 16 });
+      y += doc.heightOfString(String((asset as any).notes), { width: cw - 16 }) + 10;
+    }
+
+    // ── HISTORIAL DE MANTENIMIENTO ───────────────────────────────────
+    if (asset.maintenanceRecords.length > 0) {
+      if (y + 60 > 800) { doc.addPage(); y = 36; }
+      sectionHeader('HISTORIAL DE MANTENIMIENTO');
+      rowAlt = false;
+
+      for (const rec of asset.maintenanceRecords) {
+        if (y + 50 > 800) { doc.addPage(); y = 36; }
+
+        // Type badge
+        const typeColors: Record<string, string> = {
+          PREVENTIVO: '#16a34a', CORRECTIVO: '#d97706',
+          INSTALACION: '#0A4F8C', CONFIGURACION: '#7c3aed',
+        };
+        const tc = typeColors[rec.type] || '#64748b';
+        doc.rect(mg, y, cw, 1).fill(gray2);
+        y += 4;
+
+        // Date + type row
+        doc.rect(mg, y, 70, 16).fill(tc);
+        doc.fillColor(white).fontSize(7.5).font('Helvetica-Bold')
+          .text(rec.type, mg + 2, y + 4, { width: 66, align: 'center' });
+        doc.fillColor(gray3).fontSize(7.5).font('Helvetica')
+          .text(fmtDate(rec.date || rec.createdAt), mg + 76, y + 4);
+        if (rec.technician?.name) {
+          doc.text('Técnico: ' + rec.technician.name, mg + 180, y + 4);
+        }
+        if (rec.timeSpent) {
+          doc.text(rec.timeSpent + ' h', pageW - mg - 40, y + 4, { width: 40, align: 'right' });
+        }
+        y += 20;
+
+        // Description
+        doc.fillColor(dark).fontSize(8).font('Helvetica')
+          .text(rec.description, mg + 10, y, { width: cw - 20 });
+        y += doc.heightOfString(rec.description, { width: cw - 20 }) + 4;
+
+        // Work done
+        if (rec.workDone) {
+          doc.fillColor(gray3).fontSize(7.5).font('Helvetica-Oblique')
+            .text('Trabajo: ' + rec.workDone, mg + 10, y, { width: cw - 20 });
+          y += doc.heightOfString('Trabajo: ' + rec.workDone, { width: cw - 20 }) + 4;
+        }
+        y += 4;
+      }
+    }
+
+    // ── FOOTER ───────────────────────────────────────────────────────
+    if (y + 40 > 800) { doc.addPage(); y = 36; }
+    y += 10;
+    doc.rect(mg, y, cw, 1).fill(cyan);
+    y += 6;
+    doc.fillColor(gray3).fontSize(7.5).font('Helvetica')
+      .text(
+        `${COMPANY.name}  ·  ${COMPANY.address}  ·  Tel: ${COMPANY.phone}  ·  Cel: ${COMPANY.mobile}  ·  ${COMPANY.email}  ·  ${COMPANY.web}`,
+        mg, y, { width: cw, align: 'center' },
+      );
+    y += 12;
+    doc.fillColor(gray3).fontSize(7).font('Helvetica')
+      .text(`Generado el ${new Date().toLocaleString('es-CO')}`, mg, y, { width: cw, align: 'center' });
+
+    doc.end();
+    return new Promise((resolve, reject) => {
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+    });
   }
 
   async getQR(id: string) {

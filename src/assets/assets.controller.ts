@@ -61,15 +61,14 @@ import { PrismaService } from '../common/prisma.service';
   @Get(':id/pdf')
     async getAssetPDF(@Param('id') id: string, @Res() res: Response, @Request() req: any) {
           try {
-                  const [html, asset] = await Promise.all([
-                            this.service.getAssetPDF(id),
-                            this.prisma.asset.findUnique({ where: { id }, select: { code: true, clientId: true } }),
-                          ]);
+                  const asset = await this.prisma.asset.findUnique({ where: { id }, select: { code: true, clientId: true } });
+                  if (!asset) { res.status(404).json({ error: 'Asset not found' }); return; }
                   if (req.user?.role === 'CLIENTE' && asset?.clientId !== req.user.clientId) throw new ForbiddenException('No autorizado');
+                  const pdfBuf = await this.service.getAssetPDF(id);
                   const safeName = (asset?.code || id).replace(/[^a-zA-Z0-9_-]/g, '_');
-                  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-                  res.setHeader('Content-Disposition', `attachment; filename="hoja_vida_${safeName}.html"`);
-                  res.send(html);
+                  res.setHeader('Content-Type', 'application/pdf');
+                  res.setHeader('Content-Disposition', `inline; filename="hoja_vida_${safeName}.pdf"`);
+                  res.send(pdfBuf);
           } catch (error) {
                   if (error instanceof ForbiddenException) throw error;
                   res.status(500).json({ error: 'Error generating asset PDF' });
