@@ -5,7 +5,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { PrismaService } from '../common/prisma.service';
-import { sendWhatsappMeta } from '../common/notify';
+import { sendWhatsapp } from '../common/notify';
 import { CronOrJwtGuard } from '../auth/cron-or-jwt.guard';
 
 @ApiTags('Calendar')
@@ -153,7 +153,7 @@ export class CalendarController {
         lines.join('\n') +
         `\n\n🔗 Panel: https://www.grupogipfel.com/app`;
 
-      await sendWhatsappMeta(phone, msg);
+      await sendWhatsapp(phone, msg);
       sent++;
       results.push({ techId, techName: group.techName, phone: '***' + phone.slice(-4), tasks: group.events.length });
     }
@@ -185,7 +185,7 @@ export class CalendarController {
         hasPhone: !!u.phone,
         tasks: events.filter(e => e.techId === u.id).map(e => ({ title: e.title, time: e.timeStart, ticket: e.ticketNum })),
       })),
-      waConfigured: !!(process.env.WA_PHONE_NUMBER_ID && process.env.WA_ACCESS_TOKEN),
+      waConfigured: !!(process.env.WA_SERVICE_URL || (process.env.WA_PHONE_NUMBER_ID && process.env.WA_ACCESS_TOKEN)),
     };
   }
 }

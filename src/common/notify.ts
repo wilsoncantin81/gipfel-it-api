@@ -23,7 +23,44 @@ async function sendEmail(to: string, subject: string, html: string) {
     }
 }
 
-// ── WhatsApp vía Meta Cloud API ────────────────────────────────────
+// ── WhatsApp vía microservicio Baileys (solución principal) ────────
+// Variables de entorno requeridas:
+//   WA_SERVICE_URL    → URL del microservicio, ej: https://whatsapp-service-xxx.up.railway.app
+//   WA_SERVICE_SECRET → API_SECRET del microservicio
+export async function sendWhatsapp(toPhone: string, text: string): Promise<void>;
+export async function sendWhatsapp(toPhone: string, _apiKey: string, text: string): Promise<void>;
+export async function sendWhatsapp(toPhone: string, second: string, third?: string): Promise<void> {
+    const text = third ?? second;
+    const serviceUrl = process.env.WA_SERVICE_URL;
+    const secret = process.env.WA_SERVICE_SECRET;
+    if (serviceUrl) {
+        try {
+            const clean = toPhone.replace(/[^0-9]/g, '');
+            if (!clean || clean.length < 7) return;
+            const res = await fetch(`${serviceUrl}/send`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(secret ? { 'x-api-secret': secret } : {}),
+                },
+                body: JSON.stringify({ to: clean, message: text }),
+            });
+            if (!res.ok) {
+                const err = await res.text();
+                console.error('WhatsApp service error:', res.status, err);
+            }
+        } catch (e: any) {
+            console.error('sendWhatsapp error:', e?.message);
+        }
+        return;
+    }
+    // Fallback: Meta Cloud API
+    if (process.env.WA_PHONE_NUMBER_ID && process.env.WA_ACCESS_TOKEN) {
+        await sendWhatsappMeta(toPhone, text);
+    }
+}
+
+// ── WhatsApp vía Meta Cloud API (fallback / legacy) ─────────────────
 // Variables de entorno requeridas:
 //   WA_PHONE_NUMBER_ID  → ID del número de WhatsApp Business en Meta
 //   WA_ACCESS_TOKEN     → Token de acceso permanente de la app de Meta
@@ -63,22 +100,6 @@ export async function sendWhatsappMeta(toPhone: string, text: string): Promise<v
           }
     } catch (e: any) {
           console.error('sendWhatsappMeta error:', e?.message);
-    }
-}
-
-// Legacy CallMeBot — se mantiene para compatibilidad pero ya no se usa
-async function sendWhatsapp(phone: string, apiKey: string, text: string) {
-    if (!phone || !apiKey) return;
-    // Preferir Meta si está configurado
-    if (process.env.WA_PHONE_NUMBER_ID && process.env.WA_ACCESS_TOKEN) {
-          return sendWhatsappMeta(phone, text);
-    }
-    try {
-          const clean = phone.replace(/[^0-9+]/g, '');
-          const url = `https://api.callmebot.com/whatsapp.php?phone=${encodeURIComponent(clean)}&text=${encodeURIComponent(text)}&apikey=${encodeURIComponent(apiKey)}`;
-          await fetch(url);
-    } catch (e: any) {
-          console.error('sendWhatsapp error:', e?.message);
     }
 }
 
