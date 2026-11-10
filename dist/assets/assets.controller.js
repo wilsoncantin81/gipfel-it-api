@@ -108,15 +108,35 @@ let AssetsController = class AssetsController {
             throw new common_1.ForbiddenException('No autorizado');
         return asset;
     }
-    create(dto, req) {
+    async create(dto, req) {
         if (req.user?.role === 'CLIENTE')
             throw new common_1.ForbiddenException('No autorizado');
-        return this.service.create(dto);
+        try {
+            return await this.service.create(dto);
+        }
+        catch (e) {
+            if (e?.code === 'P2002') {
+                const field = e?.meta?.target?.[0] || 'campo';
+                const msg = field === 'serial' ? 'Ya existe un activo con ese número de serie' : field === 'code' ? 'Ya existe un activo con ese código' : `Valor duplicado en: ${field}`;
+                throw new common_1.BadRequestException(msg);
+            }
+            throw e;
+        }
     }
-    update(id, dto, req) {
+    async update(id, dto, req) {
         if (req.user?.role === 'CLIENTE')
             throw new common_1.ForbiddenException('No autorizado');
-        return this.service.update(id, dto);
+        try {
+            return await this.service.update(id, dto);
+        }
+        catch (e) {
+            if (e?.code === 'P2002') {
+                const field = e?.meta?.target?.[0] || 'campo';
+                const msg = field === 'serial' ? 'Ya existe un activo con ese número de serie' : field === 'code' ? 'Ya existe un activo con ese código' : `Valor duplicado en: ${field}`;
+                throw new common_1.BadRequestException(msg);
+            }
+            throw e;
+        }
     }
     remove(id, req) {
         if (req.user?.role === 'CLIENTE')
@@ -203,7 +223,7 @@ __decorate([
     __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], AssetsController.prototype, "create", null);
 __decorate([
     (0, common_1.Put)(':id'),
@@ -212,7 +232,7 @@ __decorate([
     __param(2, (0, common_1.Request)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, Object, Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], AssetsController.prototype, "update", null);
 __decorate([
     (0, common_1.Delete)(':id'),
