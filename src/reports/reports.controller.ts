@@ -3,6 +3,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Response } from 'express';
 import { ReportsService } from './reports.service';
+import { sendWhatsapp } from '../common/notify';
 @ApiTags('Reportes') @ApiBearerAuth() @UseGuards(AuthGuard('jwt')) @Controller('reports')
   export class ReportsController {
     constructor(private readonly service: ReportsService) {}
@@ -57,4 +58,20 @@ import { ReportsService } from './reports.service';
           }
     }
     @Post(':id/send') sendEmail(@Param('id') id: string, @Body() body: any) { return this.service.sendEmail(id, body?.email, body?.cc); }
+
+  @Post(':id/send-whatsapp')
+  async sendWhatsappReport(@Param('id') id: string, @Body() body: any) {
+    const r = await this.service.findOne(id) as any;
+    if (!r) throw new ForbiddenException('Reporte no encontrado');
+    const phone = body?.phone;
+    if (!phone) return { error: 'Se requiere phone' };
+    const text =
+      `*Reporte ${r.reportNumber}*\n` +
+      `Cliente: ${r.client?.businessName || '–'}\n` +
+      `Fecha: ${r.date || '–'}\n` +
+      `Técnico: ${r.technician?.name || '–'}\n` +
+      `Descripción: ${(r.description || '').slice(0, 200)}`;
+    await sendWhatsapp(phone, text);
+    return { ok: true };
+  }
 }
