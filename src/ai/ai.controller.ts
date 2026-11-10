@@ -57,32 +57,64 @@ export class AiController {
   async chat(@Body() body: { message: string; history?: Array<{role: string; content: string}> }, @Request() req: any) {
     const { message, history = [] } = body;
 
-    // Gather context from DB
+    // Gather rich context from DB
     let contextData = '';
     try {
-      const [clients, ticketStats, recentTickets] = await Promise.all([
-        this.prisma.client.findMany({ where: { status: 'ACTIVO' }, select: { id: true, businessName: true }, take: 30 }),
+      const [clients, ticketStats, recentTickets, recentAssets, technicians] = await Promise.all([
+        this.prisma.client.findMany({ where: { status: 'ACTIVO' }, select: { id: true, businessName: true }, orderBy: { businessName: 'asc' }, take: 50 }),
         this.prisma.ticket.groupBy({ by: ['status'], _count: { id: true } }),
         this.prisma.ticket.findMany({
           where: { status: { not: 'CERRADO' } },
-          select: { id: true, ticketNumber: true, title: true, status: true, priority: true, client: { select: { businessName: true } } },
+          select: { id: true, ticketNumber: true, title: true, status: true, priority: true,
+            client: { select: { businessName: true } },
+            assignedTo: { select: { name: true } } },
           orderBy: { createdAt: 'desc' },
-          take: 10,
+          take: 20,
+        }),
+        this.prisma.asset.findMany({
+          where: { status: 'OPERATIVO' },
+          select: { id: true, code: true, name: true, client: { select: { businessName: true } } },
+          orderBy: { updatedAt: 'desc' },
+          take: 30,
+        }),
+        this.prisma.user.findMany({
+          where: { role: { in: ['TECNICO', 'ADMIN'] }, isActive: true },
+          select: { id: true, name: true },
         }),
       ]);
-      const clientList = clients.map((c: any) => `${c.businessName} (ID:${c.id})`).join(', ');
-      const statusSummary = ticketStats.map((s: any) => `${s.status}: ${s._count.id}`).join(', ');
-      const openTicketsList = recentTickets.map((t: any) => `[${t.ticketNumber}] ${t.title} - ${t.client?.businessName || '?'} (${t.status})`).join('\n');
-      contextData = `\nClientes activos: ${clientList}\nEstado de tickets: ${statusSummary}\nTickets abiertos recientes:\n${openTicketsList}`;
+      const clientList = clients.map((c: any) => `${c.businessName} (ID:${c.id})`).join(' | ');
+      const statusSummary = ticketStats.map((s: any) => `${s.status}:${s._count.id}`).join(', ');
+      const ticketList = recentTickets.map((t: any) =>
+        `[${t.ticketNumber}] ${t.title} — ${t.client?.businessName || '?'} — ${t.status} — Técnico: ${t.assignedTo?.name || 'sin asignar'}`
+      ).join('\n');
+      const assetList = recentAssets.map((a: any) => `[${a.code}] ${a.name} — ${a.client?.businessName || '?'} (ID:${a.id})`).join('\n');
+      const techList = technicians.map((u: any) => `${u.name} (ID:${u.id})`).join(', ');
+      contextData = `
+CLIENTES ACTIVOS: ${clientList}
+TÉCNICOS: ${techList}
+TICKETS ABIERTOS (${recentTickets.length}):
+${ticketList}
+RESUMEN ESTADOS: ${statusSummary}
+ACTIVOS RECIENTES:
+${assetList}`;
     } catch (e) { /* continue without context */ }
 
-    const system = `Eres el asistente de IA de Gipfel IT Manager, sistema de gestión de activos tecnológicos de Grupo Gipfel. Ayudas al equipo técnico de soporte informático. Puedes responder preguntas, resumir información y guiar al usuario para crear tickets o reportes.
+    const system = `Eres el asistente de IA de Gipfel IT Manager, sistema de gestión de activos tecnológicos de Grupo Gipfel. Ayudas al equipo técnico. Eres conciso, útil y respondes siempre en español.
 
-Cuando el usuario quiera crear un ticket, responde ÚNICAMENTE con este JSON (sin texto adicional): {"action":"create_ticket","clientName":"nombre del cliente","title":"título del ticket","description":"descripción","priority":"MEDIA"}
-Cuando quiera crear un reporte, responde ÚNICAMENTE con: {"action":"create_report","clientName":"nombre del cliente","description":"descripción del servicio"}
-Para cualquier otra respuesta, responde en español, de forma breve y útil.
+ACCIONES DISPONIBLES — cuando el usuario pida alguna de estas, responde ÚNICAMENTE con el JSON correspondiente, sin texto adicional:
 
-Datos actuales del sistema:${contextData}`;
+Crear ticket: {"action":"create_ticket","clientName":"...","title":"...","description":"...","priority":"MEDIA|ALTA|CRITICA|BAJA"}
+Crear reporte: {"action":"create_report","clientName":"...","description":"..."}
+Cambiar estado ticket: {"action":"change_ticket_status","ticketNumber":"TK-XXX","status":"NUEVO|EN_EJECUCION|POR_CONFIRMACION|PENDIENTE_WILSON|POR_FACTURACION|PENDIENTE_POR_PAGO|CERRADO"}
+Asignar técnico: {"action":"assign_ticket","ticketNumber":"TK-XXX","techName":"nombre del técnico"}
+Buscar activos de un cliente: {"action":"search_assets","clientName":"..."}
+Ver tickets de un cliente: {"action":"search_tickets","clientName":"..."}
+Abrir ticket: {"action":"open_ticket","ticketNumber":"TK-XXX"}
+Abrir activo: {"action":"open_asset","assetCode":"XXX"}
+
+Para cualquier consulta o pregunta, responde en texto normal en español, breve y directo.
+
+DATOS DEL SISTEMA:${contextData}`;
 
     const reply = await this.callClaude(system, message, history);
     return { reply: reply || 'No pude procesar tu solicitud.' };
