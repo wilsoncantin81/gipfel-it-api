@@ -23,8 +23,56 @@ async function sendEmail(to: string, subject: string, html: string) {
     }
 }
 
+// ── WhatsApp vía Meta Cloud API ────────────────────────────────────
+// Variables de entorno requeridas:
+//   WA_PHONE_NUMBER_ID  → ID del número de WhatsApp Business en Meta
+//   WA_ACCESS_TOKEN     → Token de acceso permanente de la app de Meta
+//
+// El número destino debe estar en formato internacional sin +  (ej: 573115035734)
+export async function sendWhatsappMeta(toPhone: string, text: string): Promise<void> {
+    const phoneNumberId = process.env.WA_PHONE_NUMBER_ID;
+    const token = process.env.WA_ACCESS_TOKEN;
+    if (!phoneNumberId || !token) {
+          console.warn('WhatsApp Meta no configurado (WA_PHONE_NUMBER_ID / WA_ACCESS_TOKEN)');
+          return;
+    }
+    if (!toPhone) return;
+    // Limpiar número: solo dígitos, sin + ni espacios
+    const clean = toPhone.replace(/[^0-9]/g, '');
+    if (!clean || clean.length < 7) return;
+
+    try {
+          const url = `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`;
+          const body = {
+                to: clean,
+                type: 'text',
+                messaging_product: 'whatsapp',
+                text: { body: text },
+          };
+          const res = await fetch(url, {
+                method: 'POST',
+                headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(body),
+          });
+          if (!res.ok) {
+                const err = await res.text();
+                console.error('WhatsApp Meta error:', res.status, err);
+          }
+    } catch (e: any) {
+          console.error('sendWhatsappMeta error:', e?.message);
+    }
+}
+
+// Legacy CallMeBot — se mantiene para compatibilidad pero ya no se usa
 async function sendWhatsapp(phone: string, apiKey: string, text: string) {
     if (!phone || !apiKey) return;
+    // Preferir Meta si está configurado
+    if (process.env.WA_PHONE_NUMBER_ID && process.env.WA_ACCESS_TOKEN) {
+          return sendWhatsappMeta(phone, text);
+    }
     try {
           const clean = phone.replace(/[^0-9+]/g, '');
           const url = `https://api.callmebot.com/whatsapp.php?phone=${encodeURIComponent(clean)}&text=${encodeURIComponent(text)}&apikey=${encodeURIComponent(apiKey)}`;
