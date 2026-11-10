@@ -72,7 +72,7 @@ export class AiController {
           take: 20,
         }),
         this.prisma.asset.findMany({
-          where: { status: 'OPERATIVO' },
+          where: { status: 'ACTIVO' },
           select: { id: true, code: true, name: true, client: { select: { businessName: true } } },
           orderBy: { updatedAt: 'desc' },
           take: 30,

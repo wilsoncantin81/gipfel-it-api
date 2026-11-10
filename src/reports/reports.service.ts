@@ -247,7 +247,7 @@ export class ReportsService {
     doc.fillColor(white).fontSize(14).font('Helvetica-Bold')
       .text(rpt.reportNumber, 0, y + 8, { width: pageW * 0.5, align: 'center' });
     // Status badge right
-    const statusLabel = rpt.status || 'CERRADO';
+    const statusLabel = (rpt as any).status || 'CERRADO';
     doc.fillColor(white).fontSize(8).font('Helvetica')
       .text('Estado: ' + statusLabel, pageW * 0.5, y + 11, { width: pageW * 0.5 - mg, align: 'right' });
     y += ribbonH + 12;
