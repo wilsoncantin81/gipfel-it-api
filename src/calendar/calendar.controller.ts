@@ -6,6 +6,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { PrismaService } from '../common/prisma.service';
 import { sendWhatsappMeta } from '../common/notify';
+import { CronOrJwtGuard } from '../auth/cron-or-jwt.guard';
 
 @ApiTags('Calendar')
 @ApiBearerAuth()
@@ -78,11 +79,12 @@ export class CalendarController {
   }
 
   // ── ENVÍO DIARIO DE TAREAS VÍA WHATSAPP ────────────────────────
-  // Llamar manualmente desde el panel o programar en Railway con cron 0 12 * * *
-  // (12:00 UTC = 07:00 Bogotá COT)
+  // Llamar manualmente desde el panel (JWT) o por Railway cron con header x-cron-secret
+  // Cron sugerido: 0 12 * * * (12:00 UTC = 07:00 Bogotá COT)
+  @UseGuards(CronOrJwtGuard)
   @Post('send-daily')
   async sendDailyWhatsapp(@Request() req: any) {
-    // Solo ADMIN puede disparar esto
+    // Solo ADMIN (o cron con secret) puede disparar esto
     if (req.user?.role !== 'ADMIN') {
       return { sent: 0, error: 'No autorizado' };
     }
