@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AppController } from './app.controller';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { MulterModule } from '@nestjs/platform-express';
@@ -37,7 +38,7 @@ import { PrismaService } from './common/prisma.service';
     AlertsModule,
     DashboardModule,
   ],
-  controllers: [AiController, ClientNotesController, TeamNotesController, CalendarController, PayablesController],
+  controllers: [AppController, AiController, ClientNotesController, TeamNotesController, CalendarController, PayablesController],
   providers: [PrismaService],
 })
 export class AppModule {}
