@@ -19,6 +19,7 @@ import { TeamNotesController } from './team-notes/team-notes.controller';
 import { CalendarController } from './calendar/calendar.controller';
 import { PayablesController } from './payables/payables.controller';
 import { PrismaService } from './common/prisma.service';
+import { FrontendPublisherService } from './frontend-publish/frontend-publisher.service';
 
 @Module({
   imports: [
@@ -38,6 +39,6 @@ import { PrismaService } from './common/prisma.service';
     DashboardModule,
   ],
   controllers: [AiController, ClientNotesController, TeamNotesController, CalendarController, PayablesController],
-  providers: [PrismaService],
+  providers: [PrismaService, FrontendPublisherService],
 })
 export class AppModule {}

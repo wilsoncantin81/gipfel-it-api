@@ -16,6 +16,7 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/package.json ./
+COPY --from=builder /app/public ./public
 EXPOSE 3001
 # Run db push to ensure schema is up to date, then start app
 CMD ["sh", "-c", "npx prisma db push --skip-generate --accept-data-loss && node dist/main"]
