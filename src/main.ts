@@ -1,16 +1,14 @@
 ﻿import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
-import { NestExpressApplication } from '@nestjs/platform-express';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { PrismaClient } from '@prisma/client';
-import { join } from 'path';
 
 const prisma = new PrismaClient();
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create(AppModule);
 
   // ENABLE CORS FIRST - Before anything else
   app.enableCors({
@@ -34,8 +32,6 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
 
-  // Servir el frontend estático desde /public
-  app.useStaticAssets(join(process.cwd(), 'public'));
 
   await app.listen(3001);
   console.log('🚀 Gipfel IT API corriendo en: http://localhost:3001/api/v1');
