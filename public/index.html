@@ -1043,8 +1043,9 @@ textarea.fi{resize:vertical;min-height:80px;line-height:1.5;}
   <div class="fg"><label>Título *</label><input class="fi" id="tk-titulo"></div>
   <div class="fr2">
     <div class="fg"><label>Prioridad</label><select class="fi" id="tk-prio"><option value="MEDIA">Media</option><option value="BAJA">Baja</option><option value="ALTA">Alta</option><option value="CRITICA">Crítica</option></select></div>
-    <div class="fg"><label>Técnico asignado</label><select class="fi" id="tk-tec-sel"><option value="">Sin asignar</option></select></div>
+    <div class="fg"><label>Técnico asignado</label><select class="fi" id="tk-tec-sel" onchange="drawSupport('tk-support')"><option value="">Sin asignar</option></select></div>
   </div>
+  <div class="fg"><label>Técnicos de apoyo</label><div id="tk-support"></div></div>
   <div class="fg">
     <label style="display:flex;align-items:center;justify-content:space-between">
       <span>Solicitud del Cliente</span>
@@ -1869,7 +1870,7 @@ async function renderTickets(){
           </div>
         </div>
         <div class="tk-title">${t.title}</div>
-        <div class="tk-meta">${t.client?.businessName||'–'}${t.assignedTo?' · '+t.assignedTo.name:''}</div>
+        <div class="tk-meta">${t.client?.businessName||'–'}${techNamesOf(t)?' · '+techNamesOf(t):''}</div>
         ${totalTasks?`<div style="margin-top:6px;font-size:.72rem;color:var(--text2)">Tareas: ${doneTasks}/${totalTasks}</div>`:''}
       </div>
       <div style="font-size:.72rem;color:var(--text2);flex-shrink:0;text-align:right">${fd(t.createdAt)}</div>
@@ -1901,8 +1902,9 @@ async function openTicketDetail(id){
         </div>
       </span></div>
       <div class="fr"><span class="fk">Técnico</span><span class="fv" style="flex:1">
-        <select class="fi" id="tkd-tecnico" onchange="saveTkField('assignedToId',this.value||null)" style="margin:0;font-size:.82rem;padding:5px 8px">${tecOpts}</select>
+        <select class="fi" id="tkd-tecnico" onchange="saveTkField('assignedToId',this.value||null);drawSupport('tkd-support')" style="margin:0;font-size:.82rem;padding:5px 8px">${tecOpts}</select>
       </span></div>
+      <div class="fr"><span class="fk">Apoyo</span><span class="fv" style="flex:1"><div id="tkd-support"></div></span></div>
       <div class="fr"><span class="fk">Prioridad</span><span class="fv" style="flex:1">
         <select class="fi" id="tkd-prioridad" onchange="saveTkField('priority',this.value)" style="margin:0;font-size:.82rem;padding:5px 8px">
           <option value="BAJA" ${t.priority==='BAJA'?'selected':''}>🟢 Baja</option>
@@ -1917,6 +1919,7 @@ async function openTicketDetail(id){
       }</span></div>
       <div class="fr"><span class="fk">Creado</span><span class="fv">${fd(t.createdAt)}</span></div>
       <div class="fr"><span class="fk">Cerrado</span><span class="fv">${fd(t.resolvedAt)}</span></div>`;
+    renderSupportPicker('tkd-support',t.supportTechIds||(t.supportTechs||[]).map(x=>x.id),'tkd-tecnico',ids=>saveTkField('supportTechIds',ids));
     // Status buttons
     const curSt=TK_STATUSES.find(s=>s.k===t.status)||{l:t.status,c:'var(--muted)'};
     document.getElementById('tkd-status-btns').innerHTML=`
@@ -2000,6 +2003,30 @@ async function saveTkTitle(){
   try{await PUT(`/tickets/${_currentTicketId}`,{title:val});toast('Título guardado','success');}
   catch(e){toast('Error guardando título','error');}
 }
+// ── TÉCNICOS DE APOYO (varios técnicos por ticket) ─────────────────
+const _supSel={};
+function techNamesOf(t){
+  const names=[t?.assignedTo?.name,...((t?.supportTechs||[]).map(x=>x.name))].filter(Boolean);
+  return names.join(' + ');
+}
+function renderSupportPicker(cid,ids,leadSelId,onChange){
+  _supSel[cid]={ids:[...(ids||[])],lead:leadSelId,onChange};
+  drawSupport(cid);
+}
+function drawSupport(cid){
+  const st=_supSel[cid];const el=document.getElementById(cid);if(!st||!el)return;
+  const lead=st.lead?(document.getElementById(st.lead)?.value||''):'';
+  st.ids=st.ids.filter(i=>i&&i!==lead);
+  const nameOf=id=>(_technicians||[]).find(t=>t.id===id)?.name||'(técnico)';
+  const chips=st.ids.map(id=>`<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(59,130,246,.15);color:#93c5fd;border:1px solid rgba(59,130,246,.35);border-radius:12px;padding:2px 4px 2px 9px;font-size:.75rem;font-weight:600">${nameOf(id)}<button type="button" onclick="supRemove('${cid}','${id}')" title="Quitar" style="background:none;border:none;color:inherit;cursor:pointer;font-size:.8rem;padding:0 4px;line-height:1">✕</button></span>`).join('');
+  const avail=(_technicians||[]).filter(t=>t.id!==lead&&!st.ids.includes(t.id));
+  const add=avail.length?`<select class="fi" onchange="if(this.value)supAdd('${cid}',this.value)" style="margin:0;font-size:.78rem;padding:4px 8px;width:auto;min-width:140px"><option value="">+ Agregar técnico</option>${avail.map(t=>`<option value="${t.id}">${t.name}</option>`).join('')}</select>`:'';
+  el.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">${chips||'<span style="font-size:.75rem;color:var(--text2)">Sin apoyo</span>'}${add}</div>`;
+}
+function supAdd(cid,id){const st=_supSel[cid];if(!st||st.ids.includes(id))return;st.ids.push(id);drawSupport(cid);st.onChange&&st.onChange([...st.ids]);}
+function supRemove(cid,id){const st=_supSel[cid];if(!st)return;st.ids=st.ids.filter(x=>x!==id);drawSupport(cid);st.onChange&&st.onChange([...st.ids]);}
+function supIds(cid){return [...(_supSel[cid]?.ids||[])];}
+
 async function saveTkField(field,value){
   if(!_currentTicketId)return;
   try{
@@ -2099,7 +2126,7 @@ async function openTicketModal(){
     const sel=document.getElementById('tk-cliente-id');if(sel){sel.value=currentUser.clientId;loadTicketAssets();}
   }
   clearForm(['tk-titulo','tk-desc','tk-tasks-init','tk-cliente-txt','tk-activo-txt']);document.getElementById('tk-cliente-id').value='';document.getElementById('tk-activo-id').value='';
-  document.getElementById('tk-prio').value='MEDIA';document.getElementById('mt-tk').textContent='Nuevo Ticket';openM('m-ticket');
+  document.getElementById('tk-prio').value='MEDIA';document.getElementById('mt-tk').textContent='Nuevo Ticket';renderSupportPicker('tk-support',[],'tk-tec-sel');openM('m-ticket');
 }
 async function saveTicket(){
   const btn=document.getElementById('btn-save-ticket');
@@ -2107,7 +2134,7 @@ async function saveTicket(){
   if(!titulo||!cliente)return toast('Título y cliente son obligatorios','error');
   const tasks=document.getElementById('tk-tasks-init').value.split('\n').map(t=>t.trim()).filter(Boolean);
   btn.disabled=true;btn.textContent='Creando…';
-  try{await POST('/tickets',{clientId:cliente,assetId:document.getElementById('tk-activo-id').value||undefined,assignedToId:document.getElementById('tk-tec-sel').value||undefined,title:titulo,priority:document.getElementById('tk-prio').value,description:document.getElementById('tk-desc').value,tasks});
+  try{await POST('/tickets',{clientId:cliente,assetId:document.getElementById('tk-activo-id').value||undefined,assignedToId:document.getElementById('tk-tec-sel').value||undefined,supportTechIds:supIds('tk-support'),title:titulo,priority:document.getElementById('tk-prio').value,description:document.getElementById('tk-desc').value,tasks});
     toast('Ticket creado','success');closeM('m-ticket');renderTickets();loadBadges();}
   catch(e){toast('Error: '+e.message,'error');}finally{btn.disabled=false;btn.textContent='Crear Ticket';}
 }
@@ -2673,6 +2700,7 @@ async function openEditTicketModal(){
   // Populate technicians
   const sel=document.getElementById('etk-tecnico');
   sel.innerHTML='<option value="">Sin asignar</option>'+_technicians.map(tc=>`<option value="${tc.id}" ${t.assignedToId===tc.id?'selected':''}>${tc.name}</option>`).join('');
+  renderSupportPicker('etk-support',t.supportTechIds||[],'etk-tecnico');
   openM('m-edit-ticket');
 }
 async function saveEditTicket(){
@@ -2681,6 +2709,7 @@ async function saveEditTicket(){
   const dto={
     title:titulo,
     assignedToId:document.getElementById('etk-tecnico').value||undefined,
+    supportTechIds:supIds('etk-support'),
     priority:document.getElementById('etk-prioridad').value,
   };
   try{
@@ -3294,7 +3323,7 @@ function calTkCardHtml(tk,scheduledIds){
     const stColor=tk.status==='NUEVO'?'var(--blue)':'var(--yellow)';
     const stLabel=tk.status==='NUEVO'?'NUEVO':'EN EJEC.';
     const clientName=tk.client?.businessName||'';
-    const techName=tk.assignedTo?.name||'';
+    const techName=techNamesOf(tk);
     const title=(tk.title||'').slice(0,60);
     return `<div class="cal-tk-card${isScheduled?' scheduled':''}"
       draggable="true"
@@ -3602,7 +3631,7 @@ async function searchCalTickets(q){
     list.innerHTML=items.map(t=>{
       const clientName=t.client?.businessName||'';
       const title=(t.title||t.description||'–').slice(0,45);
-      const tech=t.assignedTo?.name||'';
+      const tech=techNamesOf(t);
       // Escape for inline onclick attribute
       const safeClient=clientName.replace(/'/g,"\\'").replace(/"/g,'&quot;');
       const safeTitle=title.replace(/'/g,"\\'").replace(/"/g,'&quot;');
@@ -4187,7 +4216,8 @@ async function loadPayablesBadge(){
 <div class="ov no-dismiss" id="m-edit-ticket"><div class="modal">
   <div class="mhd"><h2>Editar Ticket</h2><button class="mclose" onclick="closeM('m-edit-ticket')">&#x2715;</button></div>
   <div class="fg"><label>Título *</label><input class="fi" id="etk-titulo"></div>
-  <div class="fg"><label>Técnico asignado</label><select class="fi" id="etk-tecnico"><option value="">Sin asignar</option></select></div>
+  <div class="fg"><label>Técnico asignado</label><select class="fi" id="etk-tecnico" onchange="drawSupport('etk-support')"><option value="">Sin asignar</option></select></div>
+  <div class="fg"><label>Técnicos de apoyo</label><div id="etk-support"></div></div>
   <div class="fg"><label>Prioridad</label><select class="fi" id="etk-prioridad"><option value="BAJA">Baja</option><option value="MEDIA">Media</option><option value="ALTA">Alta</option><option value="CRITICA">Crítica</option></select></div>
   <div class="mft"><button class="btn btn-ghost" onclick="closeM('m-edit-ticket')">Cancelar</button><button class="btn btn-primary" onclick="saveEditTicket()">Guardar</button></div>
 </div></div>

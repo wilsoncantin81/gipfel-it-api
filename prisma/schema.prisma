@@ -195,6 +195,7 @@ model Ticket {
   clientId           String               @map("client_id")
   assetId            String?              @map("asset_id")
   assignedToId       String?              @map("assigned_to")
+  supportTechIds     String[]             @default([]) @map("support_tech_ids")
   reportId           String?              @map("report_id")
   title              String
   description        String?

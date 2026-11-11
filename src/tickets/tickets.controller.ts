@@ -40,6 +40,7 @@ import { RolesGuard } from '../auth/roles.guard';
           if (req.user?.role === 'CLIENTE') {
                   payload.clientId = req.user.clientId;
                   payload.assignedToId = undefined;
+                  payload.supportTechIds = undefined;
           }
           return this.service.create(payload);
     }

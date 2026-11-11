@@ -1,18 +1,34 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
-import { notifyTicketAssigned, notifyNewTicket } from '../common/notify';
+import { notifyTicketAssigned, notifyNewTicket, notifyTicketSupport } from '../common/notify';
 
 @Injectable()
   export class TicketsService {
   constructor(private prisma: PrismaService) {}
 
+  /** Lista limpia de técnicos de apoyo: sin repetidos, sin vacíos y sin el técnico principal */
+  private cleanSupport(ids: any, assignedToId?: string | null): string[] {
+    if (!Array.isArray(ids)) return [];
+    return [...new Set(ids.map((x: any) => String(x || '').trim()).filter(Boolean))].filter(x => x !== assignedToId);
+  }
+
+  /** Agrega supportTechs: [{id, name}] a cada ticket */
+  private async withSupportTechs<T extends any>(tickets: T[]): Promise<T[]> {
+    const ids = [...new Set(tickets.flatMap((t: any) => t?.supportTechIds || []))] as string[];
+    if (!ids.length) return tickets.map((t: any) => (t ? { ...t, supportTechs: [] } : t));
+    const users = await this.prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } });
+    const byId = new Map(users.map(u => [u.id, u]));
+    return tickets.map((t: any) => (t ? { ...t, supportTechs: (t.supportTechIds || []).map((i: string) => byId.get(i)).filter(Boolean) } : t));
+  }
+
 async findAll(q: any) {
   const where: any = {};
   if (q.status) where.status = q.status;
   if (q.clientId) where.clientId = q.clientId;
-  if (q.assignedToId) where.assignedToId = q.assignedToId;
+  // Un técnico ve los tickets donde es principal o apoyo
+  if (q.assignedToId) where.OR = [{ assignedToId: q.assignedToId }, { supportTechIds: { has: q.assignedToId } }];
   if (q.priority) where.priority = q.priority;
-  return this.prisma.ticket.findMany({
+  const list = await this.prisma.ticket.findMany({
     where,
     include: {
       client: { select: { id: true, businessName: true } },
@@ -21,6 +37,7 @@ async findAll(q: any) {
     },
     orderBy: { createdAt: 'desc' },
   });
+  return this.withSupportTechs(list);
 }
 
 async findOne(id: string) {
@@ -39,7 +56,8 @@ async findOne(id: string) {
   const statusLogs = await (this.prisma as any).$queryRaw`
   SELECT * FROM ticket_status_logs WHERE ticket_id = ${id} ORDER BY changed_at ASC
   `;
-  return { ...ticket, statusLogs };
+  const [withSupport] = await this.withSupportTechs([ticket]);
+  return { ...withSupport, statusLogs };
 }
 
 async getTask(id: string) {
@@ -81,6 +99,7 @@ async create(dto: any) {
     status: 'NUEVO',
     assetId: rest.assetId || undefined,
     assignedToId: rest.assignedToId || undefined,
+    supportTechIds: this.cleanSupport(rest.supportTechIds, rest.assignedToId),
   };
   if (tasks && tasks.length > 0) {
     data.tasks = { create: tasks.map((title: string, i: number) => ({ title, order: i })) };
@@ -92,14 +111,30 @@ async create(dto: any) {
   } else {
           notifyNewTicket(this.prisma, ticket.id).catch(() => {});
   }
+  if (data.supportTechIds.length) {
+    notifyTicketSupport(this.prisma, ticket.id, data.supportTechIds).catch(() => {});
+  }
   return ticket;
 }
 
 async update(id: string, dto: any) {
   const before = await this.prisma.ticket.findUnique({ where: { id } });
-  const updated = await this.prisma.ticket.update({ where: { id }, data: dto });
+  const data: any = { ...dto };
+  delete data.supportTechs; // campo calculado, no existe en la base
+  const lead = data.assignedToId !== undefined ? data.assignedToId : before?.assignedToId;
+  if (data.supportTechIds !== undefined) {
+    data.supportTechIds = this.cleanSupport(data.supportTechIds, lead);
+  } else if (data.assignedToId && before?.supportTechIds?.includes(data.assignedToId)) {
+    // si un apoyo pasa a ser el principal, sale de la lista de apoyo
+    data.supportTechIds = before.supportTechIds.filter(x => x !== data.assignedToId);
+  }
+  const updated = await this.prisma.ticket.update({ where: { id }, data });
   if (dto.assignedToId && dto.assignedToId !== before?.assignedToId) {
     notifyTicketAssigned(this.prisma, id).catch(() => {});
+  }
+  if (Array.isArray(data.supportTechIds)) {
+    const added = data.supportTechIds.filter((x: string) => !(before?.supportTechIds || []).includes(x));
+    if (added.length) notifyTicketSupport(this.prisma, id, added).catch(() => {});
   }
   return updated;
 }

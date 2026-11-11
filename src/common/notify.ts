@@ -124,6 +124,28 @@ export async function notifyTicketAssigned(prisma: PrismaService, ticketId: stri
     }
 }
 
+/** Avisa a los técnicos de apoyo recién agregados a un ticket */
+export async function notifyTicketSupport(prisma: PrismaService, ticketId: string, userIds: string[]) {
+    try {
+          if (!userIds?.length) return;
+          const ticket: any = await prisma.ticket.findUnique({
+                  where: { id: ticketId },
+                  include: { client: true, assignedTo: true },
+          });
+          if (!ticket) return;
+          const users = await (prisma as any).user.findMany({ where: { id: { in: userIds }, isActive: true } });
+          const clientName = ticket.client?.businessName || '';
+          const lead = ticket.assignedTo?.name ? ` Técnico principal: ${ticket.assignedTo.name}.` : '';
+          const msg = `Gipfel IT: te agregaron como apoyo en el ticket ${ticket.ticketNumber} (${clientName}). ${ticket.title}.${lead}`;
+          await Promise.all(users.map((u: any) => Promise.all([
+                  sendEmail(u.email, `Apoyo en ticket: ${ticket.ticketNumber}`, `<p>${msg}</p><p>Ingresa al panel para ver el detalle.</p>`),
+                  sendWhatsapp(u.phone, u.whatsappApiKey, msg),
+          ])));
+    } catch (e: any) {
+          console.error('notifyTicketSupport error:', e?.message);
+    }
+}
+
 export async function notifyNewTicket(prisma: PrismaService, ticketId: string) {
     try {
           const ticket: any = await prisma.ticket.findUnique({

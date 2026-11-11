@@ -22,12 +22,14 @@ export class CalendarController {
     if (!ids.length) return events;
     const tickets = await this.prisma.ticket.findMany({
       where: { id: { in: ids } },
-      select: { id: true, status: true },
+      select: { id: true, status: true, supportTechIds: true } as any,
     });
-    const statusById = new Map<string, string>(tickets.map((t: any) => [t.id, t.status as string]));
+    const byId = new Map<string, any>(tickets.map((t: any) => [t.id, t]));
     return events
-      .filter((e: any) => !e.ticketId || statusById.get(e.ticketId) !== 'CERRADO')
-      .map((e: any) => (e.ticketId ? { ...e, ticketStatus: statusById.get(e.ticketId) } : e));
+      .filter((e: any) => !e.ticketId || byId.get(e.ticketId)?.status !== 'CERRADO')
+      .map((e: any) => (e.ticketId
+        ? { ...e, ticketStatus: byId.get(e.ticketId)?.status, supportTechIds: byId.get(e.ticketId)?.supportTechIds || [] }
+        : e));
   }
 
   @Get()
@@ -128,17 +130,18 @@ export class CalendarController {
     const noTech: any[] = [];
 
     for (const ev of events) {
-      if (ev.techId) {
-        if (!byTech.has(ev.techId)) {
-          byTech.set(ev.techId, { techId: ev.techId, techName: ev.techName || '', events: [] });
+      // Destinatarios: técnico del evento + técnicos de apoyo del ticket
+      const recipients = [...new Set([ev.techId, ...(ev.supportTechIds || [])].filter(Boolean))] as string[];
+      if (!recipients.length) { noTech.push(ev); continue; }
+      for (const tid of recipients) {
+        if (!byTech.has(tid)) {
+          byTech.set(tid, { techId: tid, techName: tid === ev.techId ? (ev.techName || '') : '', events: [] });
         }
-        byTech.get(ev.techId)!.events.push(ev);
-      } else {
-        noTech.push(ev);
+        byTech.get(tid)!.events.push(ev);
       }
     }
 
-    // Cargar teléfonos de los técnicos
+    // Cargar teléfonos (y nombres) de los técnicos
     const techIds = [...byTech.keys()];
     const users = techIds.length
       ? await this.prisma.user.findMany({
@@ -146,6 +149,10 @@ export class CalendarController {
           select: { id: true, name: true, phone: true },
         })
       : [];
+    for (const u of users as any[]) {
+      const g = byTech.get(u.id);
+      if (g && !g.techName) g.techName = u.name || '';
+    }
 
     const phoneMap = new Map(users.map((u: any) => [u.id, u.phone]));
 
@@ -194,7 +201,7 @@ export class CalendarController {
       where: { date: todayCol },
       orderBy: [{ timeStart: 'asc' }],
     }));
-    const techIds = [...new Set(events.filter(e => e.techId).map(e => e.techId as string))];
+    const techIds = [...new Set(events.flatMap((e: any) => [e.techId, ...(e.supportTechIds || [])]).filter(Boolean) as string[])];
     const users = techIds.length
       ? await this.prisma.user.findMany({
           where: { id: { in: techIds } },
@@ -207,7 +214,7 @@ export class CalendarController {
       technicians: users.map((u: any) => ({
         name: u.name,
         hasPhone: !!u.phone,
-        tasks: events.filter(e => e.techId === u.id).map(e => ({ title: e.title, time: e.timeStart, ticket: e.ticketNum })),
+        tasks: events.filter((e: any) => e.techId === u.id || (e.supportTechIds || []).includes(u.id)).map(e => ({ title: e.title, time: e.timeStart, ticket: e.ticketNum })),
       })),
       waConfigured: !!(process.env.WA_SERVICE_URL || (process.env.WA_PHONE_NUMBER_ID && process.env.WA_ACCESS_TOKEN)),
     };
