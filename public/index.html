@@ -357,9 +357,9 @@ textarea.fi{resize:vertical;min-height:80px;line-height:1.5;}
 .cal-nav-btn{background:var(--s2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 14px;cursor:pointer;font-size:.85rem;transition:all .15s;}
 .cal-nav-btn:hover{border-color:var(--blue);color:var(--blue);}
 .cal-month-title{font-size:1.2rem;font-weight:800;letter-spacing:-.3px;}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;}
 .cal-dow{text-align:center;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);padding:6px 0;}
-.cal-cell{background:var(--s1);border:1px solid var(--border);border-radius:8px;min-height:108px;padding:6px;cursor:pointer;transition:all .15s;position:relative;}
+.cal-cell{background:var(--s1);border:1px solid var(--border);border-radius:8px;min-height:108px;padding:6px;cursor:pointer;transition:all .15s;position:relative;min-width:0;overflow:hidden;}
 .cal-cell:hover{border-color:var(--blue);background:var(--s2);}
 .cal-cell.today{border-color:var(--blue);background:rgba(59,130,246,.07);}
 .cal-cell.other-month{opacity:.35;}
@@ -3460,14 +3460,11 @@ function calCellInner(day,ds){
     // Para tickets: mostrar cliente · título (sin número)
     let lbl='';
     if(ev.type==='ticket'){
-      const parts=[];
-      // Extraer cliente del ticketLabel si está disponible (formato "título · cliente")
-      if(ev.ticketLabel&&ev.ticketLabel.includes(' · ')){
-        const clientPart=ev.ticketLabel.split(' · ').slice(1).join(' · ');
-        if(clientPart) parts.push(clientPart);
-      }
-      if(ev.title) parts.push(ev.title);
-      lbl=parts.join(' · ');
+      // ticketLabel: "título · cliente" o "#num · título · cliente" → el cliente es el último segmento
+      const segs=(ev.ticketLabel||'').split(' · ').map(s=>s.trim()).filter(Boolean);
+      const client=segs.length>1?segs[segs.length-1]:'';
+      const title=(ev.title||'').replace(/^#\w+\s*[·-]?\s*/,'').trim();
+      lbl=[client,title&&title!==client?title:''].filter(Boolean).join(' · ');
     } else {
       lbl=ev.title||'';
     }
