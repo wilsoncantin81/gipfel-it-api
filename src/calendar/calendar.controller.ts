@@ -7,6 +7,7 @@ import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { PrismaService } from '../common/prisma.service';
 import { sendWhatsapp } from '../common/notify';
 import { CronOrJwtGuard } from '../auth/cron-or-jwt.guard';
+import { Cron } from '@nestjs/schedule';
 
 @ApiTags('Calendar')
 @ApiBearerAuth()
@@ -14,6 +15,20 @@ import { CronOrJwtGuard } from '../auth/cron-or-jwt.guard';
 @Controller('calendar')
 export class CalendarController {
   constructor(private prisma: PrismaService) {}
+
+  /** Quita los eventos cuyo ticket está CERRADO y agrega ticketStatus a los demás */
+  private async withoutClosedTickets(events: any[]): Promise<any[]> {
+    const ids = [...new Set(events.map((e: any) => e.ticketId).filter(Boolean) as string[])];
+    if (!ids.length) return events;
+    const tickets = await this.prisma.ticket.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, status: true },
+    });
+    const statusById = new Map<string, string>(tickets.map((t: any) => [t.id, t.status as string]));
+    return events
+      .filter((e: any) => !e.ticketId || statusById.get(e.ticketId) !== 'CERRADO')
+      .map((e: any) => (e.ticketId ? { ...e, ticketStatus: statusById.get(e.ticketId) } : e));
+  }
 
   @Get()
   async findAll(@Query('month') month?: string, @Query('year') year?: string) {
@@ -23,10 +38,11 @@ export class CalendarController {
       const prefix = `${year}-${month.padStart(2, '0')}`;
       where.date = { startsWith: prefix };
     }
-    return this.prisma.calendarEvent.findMany({
+    const events = await this.prisma.calendarEvent.findMany({
       where,
       orderBy: [{ date: 'asc' }, { timeStart: 'asc' }],
     });
+    return this.withoutClosedTickets(events);
   }
 
   @Post()
@@ -54,22 +70,16 @@ export class CalendarController {
 
   @Put(':id')
   async update(@Param('id') id: string, @Body() body: any) {
-    return this.prisma.calendarEvent.update({
-      where: { id },
-      data: {
-        date: body.date,
-        type: body.type || 'otro',
-        title: body.title,
-        techId: body.techId || null,
-        techName: body.techName || null,
-        ticketId: body.ticketId || null,
-        ticketNum: body.ticketNum || null,
-        ticketLabel: body.ticketLabel || null,
-        timeStart: body.timeStart || null,
-        timeEnd: body.timeEnd || null,
-        notes: body.notes || null,
-      },
-    });
+    // Actualización parcial: solo se cambian los campos que vienen en el body
+    // (al arrastrar un evento a otro día solo llega { date })
+    const data: any = {};
+    if (body.date !== undefined) data.date = body.date;
+    if (body.type !== undefined) data.type = body.type || 'otro';
+    if (body.title !== undefined) data.title = body.title;
+    for (const k of ['techId', 'techName', 'ticketId', 'ticketNum', 'ticketLabel', 'timeStart', 'timeEnd', 'notes']) {
+      if (body[k] !== undefined) data[k] = body[k] || null;
+    }
+    return this.prisma.calendarEvent.update({ where: { id }, data });
   }
 
   @Delete(':id')
@@ -88,12 +98,26 @@ export class CalendarController {
     if (req.user?.role !== 'ADMIN') {
       return { sent: 0, error: 'No autorizado' };
     }
+    return this.runDailySend();
+  }
 
+  // ── ENVÍO AUTOMÁTICO: lunes a viernes 7:00 a. m. hora Colombia ──
+  @Cron('0 7 * * 1-5', { name: 'daily-tasks-whatsapp', timeZone: 'America/Bogota' })
+  async dailyCron() {
+    try {
+      const r = await this.runDailySend();
+      console.log('📅 Envío diario de tareas:', JSON.stringify(r));
+    } catch (e: any) {
+      console.error('📅 Error en envío diario de tareas:', e?.message);
+    }
+  }
+
+  private async runDailySend() {
     const todayCol = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' }); // "YYYY-MM-DD"
-    const events = await this.prisma.calendarEvent.findMany({
+    const events = await this.withoutClosedTickets(await this.prisma.calendarEvent.findMany({
       where: { date: todayCol },
       orderBy: [{ timeStart: 'asc' }],
-    });
+    }));
 
     if (!events.length) {
       return { sent: 0, date: todayCol, message: 'Sin eventos hoy' };
@@ -151,7 +175,7 @@ export class CalendarController {
         `Hola ${group.techName.split(' ')[0]} 👋\n` +
         `Estas son tus tareas para hoy *${fechaStr}*:\n\n` +
         lines.join('\n') +
-        `\n\n🔗 Panel: https://www.grupogipfel.com/app`;
+        `\n\n🔗 Panel: https://grupogipfel.com/gipfel.html`;
 
       await sendWhatsapp(phone, msg);
       sent++;
@@ -166,10 +190,10 @@ export class CalendarController {
   async dailyPreview(@Request() req: any) {
     if (req.user?.role !== 'ADMIN') return { error: 'No autorizado' };
     const todayCol = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
-    const events = await this.prisma.calendarEvent.findMany({
+    const events = await this.withoutClosedTickets(await this.prisma.calendarEvent.findMany({
       where: { date: todayCol },
       orderBy: [{ timeStart: 'asc' }],
-    });
+    }));
     const techIds = [...new Set(events.filter(e => e.techId).map(e => e.techId as string))];
     const users = techIds.length
       ? await this.prisma.user.findMany({

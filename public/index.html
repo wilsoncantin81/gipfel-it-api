@@ -3278,8 +3278,18 @@ function renderCalTicketPanel(){
   }
   // Detectar cuáles ya están agendados en calEvents este mes
   const scheduledIds=new Set(calEvents.filter(e=>e.ticketId).map(e=>e.ticketId));
-  if(countEl)countEl.textContent=String(_calPendingTickets.length);
-  container.innerHTML=_calPendingTickets.map(tk=>{
+  // Los que ya están agendados van al final; dentro de cada grupo se respeta el orden original
+  const ordered=[..._calPendingTickets].sort((a,b)=>(scheduledIds.has(a.id)?1:0)-(scheduledIds.has(b.id)?1:0));
+  const pendingCount=ordered.filter(t=>!scheduledIds.has(t.id)).length;
+  if(countEl)countEl.textContent=String(pendingCount);
+  let sepDone=false;
+  container.innerHTML=ordered.map(tk=>{
+    const sep=(!sepDone&&scheduledIds.has(tk.id))?(sepDone=true,`<div class="cal-tk-empty" style="padding:8px 4px 6px;text-align:left;font-weight:700;text-transform:uppercase;font-size:.65rem;letter-spacing:.8px">Ya agendados</div>`):'';
+    return sep+calTkCardHtml(tk,scheduledIds);
+  }).join('');
+}
+function calTkCardHtml(tk,scheduledIds){
+  {
     const isScheduled=scheduledIds.has(tk.id);
     const stColor=tk.status==='NUEVO'?'var(--blue)':'var(--yellow)';
     const stLabel=tk.status==='NUEVO'?'NUEVO':'EN EJEC.';
@@ -3305,7 +3315,7 @@ function renderCalTicketPanel(){
         <span class="cal-tk-status" style="background:${stColor}20;color:${stColor}">${stLabel}</span>
       </div>
     </div>`;
-  }).join('');
+  }
 }
 
 // ── DRAG & DROP ────────────────────────────────────────────────────
@@ -3408,8 +3418,7 @@ async function renderCalendario(){
     calEvents=Array.isArray(res)?res:[];
   }catch(e){calEvents=[];console.error('Calendar load error:',e);toast('Error cargando calendario: '+(e.message||''),'error');}
   // Cargar tickets pendientes (solo si aún no hay cache o si se acaba de navegar)
-  if(!_calPendingTickets.length) await loadCalPendingTickets();
-  else renderCalTicketPanel(); // actualiza marks de agendado
+  await loadCalPendingTickets(); // siempre fresco: así un ticket cerrado sale de la lista de inmediato
   buildCalGrid();
   if(calSelectedDate)showCalDayPanel(calSelectedDate);
 }

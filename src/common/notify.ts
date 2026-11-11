@@ -35,7 +35,9 @@ export async function sendWhatsapp(toPhone: string, second: string, third?: stri
     const secret = process.env.WA_SERVICE_SECRET;
     if (serviceUrl) {
         try {
-            const clean = toPhone.replace(/[^0-9]/g, '');
+            let clean = (toPhone || '').replace(/[^0-9]/g, '');
+            // Celular colombiano sin indicativo (10 dígitos que empiezan por 3) → anteponer 57
+            if (clean.length === 10 && clean.startsWith('3')) clean = '57' + clean;
             if (!clean || clean.length < 7) return;
             const res = await fetch(`${serviceUrl}/send`, {
                 method: 'POST',
