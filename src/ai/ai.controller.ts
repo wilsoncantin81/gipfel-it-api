@@ -1,4 +1,6 @@
-import { Controller, Post, Body, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Request, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { PrismaService } from '../common/prisma.service';
@@ -41,6 +43,37 @@ export class AiController {
 
     const data = await response.json();
     return data.content?.[0]?.text || '';
+  }
+
+  // ── Transcripción de voz (usada en Android, donde el dictado del navegador no es confiable) ──
+  @Post('transcribe')
+  @UseInterceptors(FileInterceptor('audio', { storage: memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } }))
+  async transcribe(@UploadedFile() file: any) {
+    if (!file?.buffer?.length) throw new BadRequestException('No llegó audio');
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) throw new BadRequestException('Transcripción no configurada (OPENAI_API_KEY)');
+
+    const mime = String(file.mimetype || 'audio/webm').split(';')[0];
+    const ext = mime.includes('mp4') || mime.includes('m4a') || mime.includes('aac') ? 'm4a'
+      : mime.includes('ogg') ? 'ogg' : mime.includes('wav') ? 'wav' : mime.includes('mpeg') ? 'mp3' : 'webm';
+    const form = new FormData();
+    form.append('file', new Blob([file.buffer], { type: mime }), `audio.${ext}`);
+    form.append('model', 'whisper-1');
+    form.append('language', 'es');
+    form.append('prompt', 'Grupo Gipfel, ticket, cliente, técnico, cámaras, red, mantenimiento, activo.');
+
+    const r = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: form as any,
+    });
+    if (!r.ok) {
+      const err = await r.text();
+      console.error('transcribe error', r.status, err.slice(0, 300));
+      throw new BadRequestException(`No se pudo transcribir (${r.status})`);
+    }
+    const data: any = await r.json();
+    return { text: String(data?.text || '').trim() };
   }
 
   @Post('improve-text')

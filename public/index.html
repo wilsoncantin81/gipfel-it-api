@@ -59,6 +59,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .mic-icon-btn svg{stroke:#fff;}
 .mic-icon-btn:active{transform:scale(0.92);}
 /* WhatsApp-style recording overlay */
+.mic-icon-btn,#mic-ai{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
 #mic-recording-overlay{position:fixed;bottom:0;left:0;right:0;z-index:9999;background:var(--s1);border-top:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;gap:14px;box-shadow:0 -4px 20px rgba(0,0,0,.2);transform:translateY(100%);transition:transform .2s ease;pointer-events:none;}
 #mic-recording-overlay.visible{transform:translateY(0);pointer-events:auto;}
 #mic-rec-icon{width:44px;height:44px;border-radius:50%;background:var(--red);display:flex;align-items:center;justify-content:center;flex-shrink:0;animation:micPulse .8s ease infinite;}
@@ -670,8 +671,8 @@ textarea.fi{resize:vertical;min-height:80px;line-height:1.5;}
       <button type="button" class="mic-icon-btn" id="mic-conclusion"
         onmousedown="startDictado('tkd-conclusion','mic-conclusion')"
         onmouseup="stopDictado('tkd-conclusion','mic-conclusion')"
-        ontouchstart="startDictado('tkd-conclusion','mic-conclusion')"
-        ontouchend="stopDictado('tkd-conclusion','mic-conclusion')"
+        ontouchstart="event.preventDefault();startDictado('tkd-conclusion','mic-conclusion')"
+        ontouchend="stopDictado('tkd-conclusion','mic-conclusion')" ontouchcancel="stopDictado('tkd-conclusion','mic-conclusion')"
         title="Mantén presionado para dictar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="1" width="6" height="13" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="20" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
       <button type="button" class="btn btn-ghost btn-xs" onclick="mejorarConclusionTicket()" style="font-size:.75rem;color:#00AEEF">&#x2728; IA</button>
     </div>
@@ -987,7 +988,7 @@ textarea.fi{resize:vertical;min-height:80px;line-height:1.5;}
       <span>Solicitud del Cliente *</span>
       <button type="button" class="mic-icon-btn" id="mic-rp-desc"
         onmousedown="startDictado('rp-desc','mic-rp-desc')" onmouseup="stopDictado('rp-desc','mic-rp-desc')"
-        ontouchstart="startDictado('rp-desc','mic-rp-desc')" ontouchend="stopDictado('rp-desc','mic-rp-desc')"
+        ontouchstart="event.preventDefault();startDictado('rp-desc','mic-rp-desc')" ontouchend="stopDictado('rp-desc','mic-rp-desc')" ontouchcancel="stopDictado('rp-desc','mic-rp-desc')"
         title="Mantén presionado para dictar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="1" width="6" height="13" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="20" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
     </label>
     <textarea class="fi" id="rp-desc" rows="4"></textarea>
@@ -1000,7 +1001,7 @@ textarea.fi{resize:vertical;min-height:80px;line-height:1.5;}
       <div style="display:flex;gap:6px;align-items:center">
         <button type="button" class="mic-icon-btn" id="mic-rp-conclusion"
           onmousedown="startDictado('rp-conclusion','mic-rp-conclusion')" onmouseup="stopDictado('rp-conclusion','mic-rp-conclusion')"
-          ontouchstart="startDictado('rp-conclusion','mic-rp-conclusion')" ontouchend="stopDictado('rp-conclusion','mic-rp-conclusion')"
+          ontouchstart="event.preventDefault();startDictado('rp-conclusion','mic-rp-conclusion')" ontouchend="stopDictado('rp-conclusion','mic-rp-conclusion')" ontouchcancel="stopDictado('rp-conclusion','mic-rp-conclusion')"
           title="Mantén presionado para dictar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="1" width="6" height="13" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="20" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
         <button type="button" class="btn btn-ghost btn-xs" onclick="mejorarConclusion()" id="btn-ia-conclusion" style="font-size:.75rem;color:var(--lightBlue, #00AEEF)">✨ IA</button>
       </div>
@@ -1052,8 +1053,8 @@ textarea.fi{resize:vertical;min-height:80px;line-height:1.5;}
       <button type="button" class="mic-icon-btn" id="mic-tk-desc"
         onmousedown="startDictado('tk-desc','mic-tk-desc')"
         onmouseup="stopDictado('tk-desc','mic-tk-desc')"
-        ontouchstart="startDictado('tk-desc','mic-tk-desc')"
-        ontouchend="stopDictado('tk-desc','mic-tk-desc')"
+        ontouchstart="event.preventDefault();startDictado('tk-desc','mic-tk-desc')"
+        ontouchend="stopDictado('tk-desc','mic-tk-desc')" ontouchcancel="stopDictado('tk-desc','mic-tk-desc')"
         title="Mantén presionado para dictar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="1" width="6" height="13" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="20" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
     </label>
     <textarea class="fi" id="tk-desc"></textarea>
@@ -4409,8 +4410,8 @@ async function loadPayablesBadge(){
     <button class="ai-send" id="mic-ai"
       onmousedown="startDictado('ai-inp','mic-ai')"
       onmouseup="stopDictadoAi()"
-      ontouchstart="startDictado('ai-inp','mic-ai')"
-      ontouchend="stopDictadoAi()"
+      ontouchstart="event.preventDefault();startDictado('ai-inp','mic-ai')"
+      ontouchend="stopDictadoAi()" ontouchcancel="stopDictadoAi()"
       title="Mantén para dictar" style="background:var(--s3);font-size:.85rem;">🎙</button>
     <button class="ai-send" onclick="sendAiMsg()">➤</button>
   </div>
@@ -4774,7 +4775,83 @@ function _hideRecOverlay(){
   if(el)el.textContent='0:00';
 }
 
+// ── Dictado por grabación + transcripción en el servidor ──
+// En Android (Chrome, app instalada o WebView) el dictado del navegador falla o repite texto,
+// así que allí se graba el audio y la API lo transcribe.
+let _mediaRec=null,_mediaStream=null,_mediaChunks=[],_recStarting=false,_recAbort=false;
+function _useRecorderMode(){
+  const hasSR=('webkitSpeechRecognition' in window||'SpeechRecognition' in window);
+  const android=/Android/i.test(navigator.userAgent);
+  return (android||!hasSR)&&!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)&&typeof MediaRecorder!=='undefined';
+}
+async function startRecorderDictado(targetId,btnId){
+  const btn=document.getElementById(btnId);const target=document.getElementById(targetId);
+  if(!btn||!target||_mediaRec||_recStarting)return;
+  _recStarting=true;_recAbort=false;
+  _dictCancelled=false;_dictOriginalValue=target.value;_dictTarget=targetId;_dictBtn=btnId;
+  btn.classList.add('recording');
+  let stream;
+  try{stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});}
+  catch(e){
+    _recStarting=false;btn.classList.remove('recording');
+    const denied=e&&(e.name==='NotAllowedError'||e.name==='SecurityError');
+    toast(denied?'Permiso de micrófono denegado. Actívalo en Ajustes → Apps → permisos de micrófono.':'No se pudo abrir el micrófono: '+(e&&(e.message||e.name)),'error',6000);
+    return;
+  }
+  _recStarting=false;
+  if(_recAbort){ // soltó el botón mientras se pedía el permiso
+    stream.getTracks().forEach(t=>t.stop());btn.classList.remove('recording');
+    toast('Micrófono listo. Mantén presionado mientras hablas.','info',4000);return;
+  }
+  _mediaStream=stream;_mediaChunks=[];
+  const types=['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg;codecs=opus','audio/ogg'];
+  const mime=types.find(m=>{try{return MediaRecorder.isTypeSupported(m);}catch{return false;}})||'';
+  try{_mediaRec=new MediaRecorder(stream,mime?{mimeType:mime}:undefined);}
+  catch{_mediaRec=new MediaRecorder(stream);}
+  _mediaRec.ondataavailable=e=>{if(e.data&&e.data.size)_mediaChunks.push(e.data);};
+  _mediaRec.start(500);
+  _showRecOverlay();
+}
+function _stopRecorder(){
+  return new Promise(res=>{
+    const rec=_mediaRec;if(!rec){res(null);return;}
+    rec.onstop=()=>{
+      const blob=new Blob(_mediaChunks,{type:(rec.mimeType||'audio/webm').split(';')[0]});
+      if(_mediaStream)_mediaStream.getTracks().forEach(t=>t.stop());
+      _mediaRec=null;_mediaStream=null;_mediaChunks=[];
+      res(blob);
+    };
+    try{rec.stop();}catch{_mediaRec=null;res(null);}
+  });
+}
+async function _transcribeBlob(blob){
+  const t=blob.type||'';
+  const ext=t.includes('mp4')?'m4a':t.includes('ogg')?'ogg':'webm';
+  const fd=new FormData();fd.append('audio',blob,'voz.'+ext);
+  const res=await fetch(API_URL+'/ai/transcribe',{method:'POST',headers:{Authorization:`Bearer ${TOKEN}`},body:fd,mode:'cors',credentials:'omit'});
+  if(!res.ok){let m='';try{m=(await res.json()).message;}catch{}throw new Error(m||('HTTP '+res.status));}
+  return ((await res.json()).text||'').trim();
+}
+async function _finishRecorder(target){
+  const cancelled=_dictCancelled;
+  const blob=await _stopRecorder();
+  _dictCancelled=false;
+  if(cancelled){if(target)target.value=_dictOriginalValue;toast('Grabación cancelada','info');return;}
+  if(!blob||blob.size<1200){toast('No se alcanzó a grabar. Mantén presionado mientras hablas.','info');return;}
+  showLoader('Transcribiendo…');
+  try{
+    const txt=await _transcribeBlob(blob);
+    if(!txt){toast('No se entendió el audio, intenta de nuevo','info');return;}
+    if(target){
+      target.value=((_dictOriginalValue?_dictOriginalValue+' ':'')+txt).replace(/\s+/g,' ').trim();
+      target.dispatchEvent(new Event('input'));target.dispatchEvent(new Event('blur'));
+    }
+  }catch(e){toast('Error al transcribir: '+e.message,'error');}
+  finally{hideLoader();}
+}
+
 function startDictado(targetId, btnId){
+  if(_useRecorderMode()){startRecorderDictado(targetId,btnId);return;}
   if(!('webkitSpeechRecognition' in window||'SpeechRecognition' in window)){
     toast('Tu navegador no soporta dictado por voz','error');return;
   }
@@ -4808,7 +4885,8 @@ function startDictado(targetId, btnId){
     target.value=(existing?(existing+' '):'') + _dictAccum + (interim?(' '+interim):'');
   };
   _dictRecognition.onerror=(e)=>{
-    if(e.error!=='aborted')toast('Error de micrófono: '+e.error,'error');
+    if(e.error==='not-allowed'||e.error==='service-not-allowed')toast('Permiso de micrófono denegado. Actívalo en Ajustes → Apps → permisos de micrófono.','error',6000);
+    else if(e.error!=='aborted'&&e.error!=='no-speech')toast('Error de micrófono: '+e.error,'error');
     stopDictado(targetId,btnId);
   };
   _dictRecognition.start();
@@ -4822,15 +4900,16 @@ function cancelDictado(){
   stopDictado(targetId,btnId);
 }
 
-function stopDictadoAi(){
-  stopDictado('ai-inp','mic-ai');
+async function stopDictadoAi(){
+  const recMode=!!(_mediaRec||_recStarting);
+  await stopDictado('ai-inp','mic-ai');
   setTimeout(()=>{
     const inp=document.getElementById('ai-inp');
     if(inp&&inp.value.trim())sendAiMsg();
-  },400);
+  },recMode?0:400);
 }
 
-function stopDictado(targetId, btnId){
+async function stopDictado(targetId, btnId){
   _hideRecOverlay();
   const btn=document.getElementById(btnId||_dictBtn);
   const target=document.getElementById(targetId||_dictTarget);
@@ -4840,6 +4919,8 @@ function stopDictado(targetId, btnId){
       btn.innerHTML=_micSVG();
     }
   }
+  if(_recStarting){_recAbort=true;return;}
+  if(_mediaRec){await _finishRecorder(target);return;}
   if(_dictRecognition){
     _dictRecognition.onend=()=>{
       if(_dictCancelled){
