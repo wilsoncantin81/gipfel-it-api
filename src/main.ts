@@ -32,6 +32,11 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
 
+  // Servir el frontend en la raíz (antes del prefix /api/v1)
+  const express = require('express');
+  const path = require('path');
+  app.use(express.static(path.join(process.cwd(), 'public')));
+
   await app.listen(3001);
   console.log('🚀 Gipfel IT API corriendo en: http://localhost:3001/api/v1');
 }
