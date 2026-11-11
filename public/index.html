@@ -4451,6 +4451,33 @@ function addAiMsg(role,content,extra){
   wrap.scrollTop=wrap.scrollHeight;
   return div;
 }
+// Busca una orden JSON {"action":...} en la respuesta de la IA, aunque venga en ```json``` o con texto alrededor
+function extractAiAction(reply){
+  const raw=String(reply||'');
+  const tryParse=s=>{try{const o=JSON.parse(s);return o&&typeof o==='object'&&o.action?o:null;}catch{return null;}};
+  // 1) Bloque ```json ... ```
+  const fence=raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if(fence){
+    const o=tryParse(fence[1].trim());
+    if(o)return {action:o,text:raw.replace(fence[0],'').trim()};
+  }
+  // 2) Primer objeto {...} balanceado que tenga "action"
+  for(let i=raw.indexOf('{');i!==-1;i=raw.indexOf('{',i+1)){
+    let depth=0,inStr=false,esc=false;
+    for(let j=i;j<raw.length;j++){
+      const c=raw[j];
+      if(inStr){if(esc)esc=false;else if(c==='\\')esc=true;else if(c==='"')inStr=false;continue;}
+      if(c==='"')inStr=true;
+      else if(c==='{')depth++;
+      else if(c==='}'){depth--;if(depth===0){
+        const o=tryParse(raw.slice(i,j+1));
+        if(o)return {action:o,text:(raw.slice(0,i)+raw.slice(j+1)).replace(/```(json)?/gi,'').trim()};
+        break;
+      }}
+    }
+  }
+  return {action:null,text:raw};
+}
 async function sendAiMsg(){
   const inp=document.getElementById('ai-inp');
   const msg=inp.value.trim();if(!msg)return;
@@ -4463,12 +4490,12 @@ async function sendAiMsg(){
     typing.remove();
     const reply=res.reply||'Sin respuesta';
     // Try to parse as action JSON
-    let parsed=null;
-    try{const t=reply.trim();if(t.startsWith('{'))parsed=JSON.parse(t);}catch{}
+    const {action:parsed,text:extraText}=extractAiAction(reply);
     if(!parsed){
       addAiMsg('bot',reply);
       _aiHistory.push({role:'assistant',content:reply});
     } else {
+      if(extraText)addAiMsg('bot',extraText);
       await handleAiAction(parsed);
     }
   }catch(e){typing.remove();addAiMsg('bot','Error al contactar la IA: '+e.message);}
@@ -4488,10 +4515,31 @@ function aiActionCard(title, rows, confirmLabel, onConfirm, onCancel){
   return msgDiv;
 }
 
+function _normClient(s){
+  return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/&/g,'y').replace(/[^a-z0-9 ]/g,' ')
+    .replace(/\b(s ?a ?s|sas|s ?a|ltda|limitada|e ?u|inc|cia)\b/g,' ')
+    .replace(/\s+/g,' ').trim();
+}
 function findClient(name){
-  if(!name)return null;
-  const n=name.toLowerCase();
-  return _clients.find(c=>c.businessName.toLowerCase().includes(n));
+  if(!name||!_clients?.length)return null;
+  const n=_normClient(name);if(!n)return null;
+  const compact=s=>s.replace(/ /g,'');
+  const list=_clients.map(c=>({c,k:_normClient(c.businessName)}));
+  let hit=list.find(x=>x.k===n)
+    ||list.find(x=>compact(x.k)===compact(n))
+    ||list.find(x=>x.k.includes(n)||n.includes(x.k))
+    ||list.find(x=>compact(x.k).includes(compact(n))||compact(n).includes(compact(x.k)));
+  if(hit)return hit.c;
+  // Coincidencia por palabras: el cliente con más palabras en común
+  const words=n.split(' ').filter(w=>w.length>1);
+  let best=null,score=0;
+  for(const x of list){
+    const kw=x.k.split(' ');
+    const s=words.filter(w=>kw.includes(w)).length;
+    if(s>score){score=s;best=x.c;}
+  }
+  return score>0?best:null;
 }
 
 async function handleAiAction(parsed){
