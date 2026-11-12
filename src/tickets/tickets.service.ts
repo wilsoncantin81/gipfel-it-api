@@ -28,6 +28,18 @@ async findAll(q: any) {
   // Un técnico ve los tickets donde es principal o apoyo
   if (q.assignedToId) where.OR = [{ assignedToId: q.assignedToId }, { supportTechIds: { has: q.assignedToId } }];
   if (q.priority) where.priority = q.priority;
+  const term = String(q.search || '').trim();
+  if (term) {
+    const ins = { contains: term, mode: 'insensitive' as const };
+    const or: any[] = [
+      { ticketNumber: ins }, { title: ins }, { description: ins },
+      { client: { businessName: ins } },
+    ];
+    // "135" también encuentra TKT-00135
+    const digits = term.replace(/\D/g, '');
+    if (digits && digits.length <= 6) or.push({ ticketNumber: { endsWith: digits.padStart(5, '0') } });
+    where.AND = [...(where.AND || []), { OR: or }];
+  }
   const list = await this.prisma.ticket.findMany({
     where,
     include: {

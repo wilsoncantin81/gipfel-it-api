@@ -291,7 +291,7 @@ textarea.fi{resize:vertical;min-height:80px;line-height:1.5;}
 .autocomplete-wrap{position:relative;}
 .autocomplete-list{position:absolute;top:100%;left:0;right:0;background:var(--s2);border:1px solid var(--border);border-radius:8px;z-index:100;max-height:200px;overflow-y:auto;margin-top:2px;}
 .autocomplete-item{padding:9px 12px;cursor:pointer;font-size:.84rem;display:flex;flex-direction:column;}
-.autocomplete-item:hover{background:var(--s3);}
+.autocomplete-item:hover,.autocomplete-item.ac-active{background:var(--s3);}
 .autocomplete-item span{font-size:.72rem;color:var(--text2);}
 .checklist{display:flex;flex-direction:column;gap:6px;margin-top:8px;}
 .check-item{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--s2);border-radius:7px;border:1px solid var(--border);}
@@ -504,7 +504,7 @@ textarea.fi{resize:vertical;min-height:80px;line-height:1.5;}
           <div class="ph-btns"><button class="btn btn-primary" onclick="openClientModal()">＋ Nuevo Cliente</button></div>
         </div>
         <div class="toolbar">
-          <div class="srch"><span class="srch-ic">🔍</span><input type="text" id="s-cl" placeholder="Buscar cliente…" oninput="debounce(renderClientes,400)()"></div>
+          <div class="srch"><span class="srch-ic">🔍</span><input type="text" id="s-cl" placeholder="Buscar por nombre, NIT, ciudad o contacto…" oninput="renderClientesDebounced()"></div>
           <select class="fsel" id="f-cl-st" onchange="renderClientes()"><option value="">Todos</option><option value="ACTIVO">Activo</option><option value="INACTIVO">Inactivo</option></select>
         </div>
         <div class="cards-grid" id="clientes-grid"></div>
@@ -634,8 +634,8 @@ textarea.fi{resize:vertical;min-height:80px;line-height:1.5;}
         </div>
         <div class="status-pipeline" id="tk-pipeline"></div>
         <div class="toolbar">
-          <div class="srch"><span class="srch-ic">🔍</span><input type="text" id="s-tk" placeholder="Buscar ticket…" oninput="debounce(renderTickets,400)()"></div>
-          <select class="fsel" id="f-tk-cl" onchange="renderTickets()"><option value="">Todos los clientes</option></select>
+          <div class="srch"><span class="srch-ic">🔍</span><input type="text" id="s-tk" placeholder="N° ticket, título o cliente…" oninput="renderTicketsDebounced()"></div>
+          <div class="autocomplete-wrap" style="position:relative;min-width:210px"><input class="fi" id="f-tk-cl-txt" autocomplete="off" placeholder="Todos los clientes" oninput="if(!this.value){document.getElementById('f-tk-cl-id').value='';renderTickets();}searchClientes(this.value,'f-tk-cl-id','f-tk-cl-list',renderTickets)" style="margin:0;padding-right:28px"><button type="button" title="Quitar filtro" onclick="clearTkClientFilter()" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text2);cursor:pointer;font-size:.85rem">✕</button><div class="autocomplete-list" id="f-tk-cl-list" style="display:none"></div><input type="hidden" id="f-tk-cl-id"></div>
           <select class="fsel" id="f-tk-pr" onchange="renderTickets()"><option value="">Todas las prioridades</option><option value="CRITICA">Crítica</option><option value="ALTA">Alta</option><option value="MEDIA">Media</option><option value="BAJA">Baja</option></select>
           <select class="fsel" id="f-tk-tech" onchange="renderTickets()"><option value="">Todos los técnicos</option></select>
         </div>
@@ -1357,12 +1357,58 @@ async function loadBadges(){
 }
 
 // ── AUTOCOMPLETE ──
+// Búsqueda de clientes tolerante: sin tildes, "&" = "y", sin puntos ni SAS/LTDA,
+// palabras en cualquier orden, y también por NIT, ciudad o contacto.
+function _normTxt(x){
+  return String(x||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/&/g,' y ').replace(/[^a-z0-9ñ ]/g,' ')
+    .replace(/\b(s ?a ?s|sas|s ?a|ltda|limitada|e ?u|inc|cia|y cia)\b/g,' ')
+    .replace(/\s+/g,' ').trim();
+}
+function _clientKey(c){
+  if(c.__k&&c.__kn===c.businessName)return c.__k;
+  const name=_normTxt(c.businessName);
+  c.__k={name,compact:name.replace(/ /g,''),nit:String(c.nit||'').replace(/\D/g,''),
+    other:_normTxt([c.city,c.contactName,c.email].filter(Boolean).join(' '))};
+  c.__kn=c.businessName;
+  return c.__k;
+}
+function scoreClient(c,q){
+  const k=_clientKey(c);const nq=_normTxt(q);const qd=String(q||'').replace(/\D/g,'');
+  if(!nq&&!qd)return 1;
+  if(qd.length>=4&&k.nit.includes(qd))return 95;          // NIT (con o sin puntos/guion)
+  const cq=nq.replace(/ /g,'');
+  if(k.name===nq||k.compact===cq)return 100;
+  if(k.name.startsWith(nq)||k.compact.startsWith(cq))return 90;
+  const words=k.name.split(' ');
+  const toks=nq.split(' ').filter(Boolean);
+  // Todas las palabras escritas aparecen (en cualquier orden) en el nombre
+  if(toks.length&&toks.every(t=>words.some(w=>w.startsWith(t))))return 80;
+  if(cq.length>=2&&k.compact.includes(cq))return 70;          // "dyd" ⊂ "importadoradyd"
+  const big=toks.filter(t=>t.length>=2); // letras sueltas ("d y d") no cuentan para coincidencias parciales
+  if(big.length&&big.every(t=>k.name.includes(t)))return 60;
+  if(big.length&&big.every(t=>k.name.includes(t)||k.other.includes(t)))return 40; // ciudad / contacto
+  return 0;
+}
+function findClients(q,limit=10,list){
+  const src=list||_clients||[];
+  return src.map(c=>({c,s:scoreClient(c,q)})).filter(x=>x.s>0)
+    .sort((a,b)=>b.s-a.s||String(a.c.businessName).localeCompare(String(b.c.businessName),'es'))
+    .slice(0,limit).map(x=>x.c);
+}
+const _acCallbacks={};
 async function searchClientes(q,idField,listId,callback){
-  const list=document.getElementById(listId);
-  if(!q){list.style.display='none';return;}
-  const results=_clients.filter(c=>c.businessName.toLowerCase().includes(q.toLowerCase())||c.nit?.includes(q)).slice(0,8);
-  list.innerHTML=results.map(c=>`<div class="autocomplete-item" onclick="selectCliente('${c.id}','${c.businessName}','${idField}','${listId}'${callback?`,${callback.name}`:''})">${c.businessName}<span>${c.nit||''} · ${c.city||''}</span></div>`).join('')||`<div class="autocomplete-item" style="color:var(--text2)">Sin resultados</div>`;
+  const list=document.getElementById(listId);if(!list)return;
+  if(!_clients.length)await loadClientsCache();
+  if(callback)_acCallbacks[listId]=callback;
+  const results=findClients(q,q?12:10);
+  list.innerHTML=results.map((c,i)=>`<div class="autocomplete-item${i===0&&q?' ac-active':''}" data-id="${c.id}" data-idfield="${idField}" data-list="${listId}" onmousedown="event.preventDefault();pickClientItem(this)">${escHtml(c.businessName)}<span>${escHtml([c.nit,c.city].filter(Boolean).join(' · '))}</span></div>`).join('')
+    ||`<div class="autocomplete-item" style="color:var(--text2)">Sin resultados para "${escHtml(q)}"</div>`;
   list.style.display='block';
+}
+function pickClientItem(el){
+  const c=(_clients||[]).find(x=>x.id===el.dataset.id);if(!c)return;
+  selectCliente(c.id,c.businessName,el.dataset.idfield,el.dataset.list,_acCallbacks[el.dataset.list]);
 }
 function selectCliente(id,name,idField,listId,callback){
   document.getElementById(idField.replace('-id','-txt')).value=name;
@@ -1370,6 +1416,31 @@ function selectCliente(id,name,idField,listId,callback){
   document.getElementById(listId).style.display='none';
   if(callback)callback();
 }
+// Teclado en cualquier autocompletado: ↑ ↓ para moverse, Enter para elegir, Esc para cerrar
+document.addEventListener('keydown',e=>{
+  const inp=e.target;if(!inp.closest||!inp.closest('.autocomplete-wrap'))return;
+  const list=inp.closest('.autocomplete-wrap').querySelector('.autocomplete-list');
+  if(!list||list.style.display==='none')return;
+  const items=[...list.querySelectorAll('.autocomplete-item[data-id],.autocomplete-item[onclick],.autocomplete-item[onmousedown]')];
+  if(!items.length)return;
+  let i=items.findIndex(x=>x.classList.contains('ac-active'));
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+    e.preventDefault();
+    if(i>=0)items[i].classList.remove('ac-active');
+    i=e.key==='ArrowDown'?Math.min(items.length-1,i+1):Math.max(0,i-1);
+    items[i].classList.add('ac-active');items[i].scrollIntoView({block:'nearest'});
+  }else if(e.key==='Enter'){
+    if(i<0)return;e.preventDefault();
+    const it=items[i];
+    if(it.dataset.id&&it.dataset.list)pickClientItem(it);
+    else it.dispatchEvent(new MouseEvent(it.getAttribute('onmousedown')?'mousedown':'click',{bubbles:true}));
+  }else if(e.key==='Escape'){list.style.display='none';}
+});
+// Al entrar a un campo de cliente vacío, mostrar opciones sin tener que escribir
+document.addEventListener('focusin',e=>{
+  const inp=e.target;
+  if(inp.tagName==='INPUT'&&/searchClientes\(/.test(inp.getAttribute('oninput')||'')&&!inp.value)inp.dispatchEvent(new Event('input'));
+});
 async function searchActivos(q,idField,listId){
   const list=document.getElementById(listId);
   if(!q){list.style.display='none';return;}
@@ -1457,11 +1528,15 @@ document.addEventListener('click',e=>{if(!e.target.closest('#alertPanel')&&!e.ta
 
 // ── CLIENTES ──
 const AVATARS=['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#f97316','#06b6d4','#ec4899'];
-async function renderClientes(){
+let _clModuleList=null,_clModuleSt=null;
+const renderClientesDebounced=debounce(()=>renderClientes(true),150);
+async function renderClientes(fromSearch){
   const q=document.getElementById('s-cl').value;const st=document.getElementById('f-cl-st').value;
-  showLoader('Cargando clientes…');
-  try{const r=await GET(`/clients?search=${encodeURIComponent(q)}&status=${st}&limit=100`)||{};
-    let list=Array.isArray(r)?r:(r.data||[]);
+  const needFetch=!fromSearch||!_clModuleList||_clModuleSt!==st;
+  if(needFetch)showLoader('Cargando clientes…');
+  try{
+    if(needFetch){const r=await GET(`/clients?status=${st}&limit=1000`)||{};_clModuleList=Array.isArray(r)?r:(r.data||[]);_clModuleSt=st;}
+    let list=q?findClients(q,200,_clModuleList):_clModuleList;
     const g=document.getElementById('clientes-grid');
     if(!list.length){g.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="empty-ic">🏢</div><h3>Sin clientes</h3></div>`;return;}
     g.innerHTML=list.map((c,i)=>{const bg=AVATARS[i%AVATARS.length];return`<div class="client-card" onclick="openClientDetail('${c.id}')">
@@ -1890,11 +1965,12 @@ function renderTkPipeline(){
 }
 function setTkFilter(k){_tkStatusFilter=k;renderTkPipeline();renderTickets();}
 
+const renderTicketsDebounced=debounce(()=>renderTickets(),300);
+function clearTkClientFilter(){document.getElementById('f-tk-cl-txt').value='';document.getElementById('f-tk-cl-id').value='';document.getElementById('f-tk-cl-list').style.display='none';renderTickets();}
 async function renderTickets(){
   renderTkPipeline();
-  const q=document.getElementById('s-tk').value;const fc=document.getElementById('f-tk-cl').value;const fp=document.getElementById('f-tk-pr').value;const ft=document.getElementById('f-tk-tech').value;
+  const q=document.getElementById('s-tk').value;const fc=document.getElementById('f-tk-cl-id').value;const fp=document.getElementById('f-tk-pr').value;const ft=document.getElementById('f-tk-tech').value;
   // populate filters
-  const cl=document.getElementById('f-tk-cl');const cur=cl.value;cl.innerHTML='<option value="">Todos los clientes</option>'+_clients.map(c=>`<option value="${c.id}">${c.businessName}</option>`).join('');cl.value=cur;
   const techEl=document.getElementById('f-tk-tech');const cur2=techEl.value;techEl.innerHTML='<option value="">Todos los técnicos</option>'+_technicians.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');techEl.value=cur2;
   showLoader('Cargando tickets…');
   try{let url=`/tickets?search=${encodeURIComponent(q)}&priority=${fp}&limit=100`;if(fc)url+=`&clientId=${fc}`;if(ft)url+=`&assignedToId=${ft}`;if(_tkStatusFilter)url+=`&status=${_tkStatusFilter}`;
@@ -2096,11 +2172,11 @@ async function saveTkAssetFromDrop(id,label){
 }
 async function tkClientSearch(q){
   const drop=document.getElementById('tkd-cliente-drop');
-  if(!q||q.length<2){drop.style.display='none';return;}
+  if(!q){drop.style.display='none';return;}
   try{
-    const res=await GET(`/clients?search=${encodeURIComponent(q)}&limit=8`);
-    const list=Array.isArray(res)?res:(res.data||[]);
-    if(!list.length){drop.style.display='none';return;}
+    if(!_clients.length)await loadClientsCache();
+    const list=findClients(q,10);
+    if(!list.length){drop.innerHTML='<div style="padding:7px 10px;font-size:.82rem;color:var(--text2)">Sin resultados</div>';drop.style.display='block';return;}
     drop.innerHTML=list.map(c=>`<div style="padding:7px 10px;cursor:pointer;font-size:.82rem;border-bottom:1px solid var(--border)" onmousedown="saveTkClientFromDrop('${c.id}','${(c.businessName||'').replace(/'/g,'\\\'')}')">${c.businessName}</div>`).join('');
     drop.style.display='block';
   }catch{drop.style.display='none';}
