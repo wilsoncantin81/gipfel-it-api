@@ -1960,7 +1960,7 @@ async function openTicketDetail(id){
       </span></div>
       <div class="fr"><span class="fk">Reporte</span><span class="fv">${t.report
         ?`<div class="report-card" onclick="openReportFromTicket('${t.report.id}','${t.report.reportNumber}')"><div class="report-card-icon">▤</div><div class="report-card-info"><div class="report-card-num">${t.report.reportNumber}</div><div class="report-card-sub">Toca para abrir</div></div><span style="color:var(--text2);font-size:.8rem">›</span></div>`
-        :`<button class="btn btn-ghost btn-xs" onclick="openM('m-link-report')">+ Vincular reporte</button>`
+        :`<button class="btn btn-ghost btn-xs" onclick="openLinkReportModal()">+ Vincular reporte</button>`
       }</span></div>
       <div class="fr"><span class="fk">Creado</span><span class="fv">${fd(t.createdAt)}</span></div>
       <div class="fr"><span class="fk">Cerrado</span><span class="fv">${fd(t.resolvedAt)}</span></div>`;
@@ -2185,11 +2185,17 @@ async function saveTicket(){
 }
 let _linkedReports=[];
 let _allReportsCache=[];
-async function editCurrentTicket(){
-  const t=await GET(`/tickets/${_currentTicketId}`);if(!t)return;
-  // Load all reports for search
-  try{_allReportsCache=await GET('/reports?limit=500')||[];}catch{_allReportsCache=[];}
-  _allReportsCache=Array.isArray(_allReportsCache)?_allReportsCache:[];
+// Abre la ventana para vincular un reporte al ticket (carga la lista de reportes)
+async function openLinkReportModal(){
+  showLoader('Cargando reportes…');
+  let t=null;
+  try{
+    t=await GET(`/tickets/${_currentTicketId}`);if(!t)return;
+    try{_allReportsCache=await GET('/reports?limit=500')||[];}catch{_allReportsCache=[];}
+    _allReportsCache=Array.isArray(_allReportsCache)?_allReportsCache:(_allReportsCache.data||[]);
+    // Primero los reportes del mismo cliente del ticket, del más reciente al más antiguo
+    _allReportsCache.sort((a,b)=>((b.clientId===t.clientId)-(a.clientId===t.clientId))||(new Date(b.date||0)-new Date(a.date||0)));
+  }finally{hideLoader();}
   // Initialize linked reports from current ticket
   _linkedReports=t.reportId?[t.reportId]:[];
   document.getElementById('link-rp-search').value='';
@@ -2197,6 +2203,7 @@ async function editCurrentTicket(){
   renderLinkedReports();
   openM('m-link-report');
 }
+const editCurrentTicket=openLinkReportModal; // nombre anterior, lo usa "Cambiar reporte vinculado"
 function searchReportsToLink(){
   const q=document.getElementById('link-rp-search').value.toLowerCase();
   const filtered=q?_allReportsCache.filter(r=>
