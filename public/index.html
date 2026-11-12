@@ -2191,18 +2191,34 @@ async function openLinkReportModal(){
   let t=null;
   try{
     t=await GET(`/tickets/${_currentTicketId}`);if(!t)return;
-    try{_allReportsCache=await GET('/reports?limit=500')||[];}catch{_allReportsCache=[];}
-    _allReportsCache=Array.isArray(_allReportsCache)?_allReportsCache:(_allReportsCache.data||[]);
-    // Primero los reportes del mismo cliente del ticket, del más reciente al más antiguo
-    _allReportsCache.sort((a,b)=>((b.clientId===t.clientId)-(a.clientId===t.clientId))||(new Date(b.date||0)-new Date(a.date||0)));
+    _linkClientId=t.clientId||'';
+    _linkedReports=t.reportId?[t.reportId]:[];
+    _allReportsCache=t.report?[{...t.report,id:t.report.id||t.reportId}]:[];
+    const chk=document.getElementById('link-rp-all');if(chk)chk.checked=false;
+    document.getElementById('link-rp-search').value='';
+    await loadReportsToLink(false);
   }finally{hideLoader();}
-  // Initialize linked reports from current ticket
-  _linkedReports=t.reportId?[t.reportId]:[];
-  document.getElementById('link-rp-search').value='';
+  if(!t)return;
   searchReportsToLink();
   renderLinkedReports();
   openM('m-link-report');
 }
+let _linkClientId='';
+// Por defecto solo los reportes del cliente del ticket; con la casilla, los de todos los clientes
+async function loadReportsToLink(all){
+  const url=(all||!_linkClientId)?'/reports?limit=500':`/reports?clientId=${encodeURIComponent(_linkClientId)}`;
+  let list=[];
+  try{list=await GET(url)||[];}catch{list=[];}
+  list=Array.isArray(list)?list:(list.data||[]);
+  // Los últimos creados primero
+  const ts=r=>new Date(r.createdAt||r.date||0).getTime();
+  list.sort((a,b)=>ts(b)-ts(a));
+  // Conservar en caché los ya vinculados para poder mostrarlos aunque sean de otro cliente
+  const keep=(_allReportsCache||[]).filter(r=>_linkedReports.includes(r.id)&&!list.some(x=>x.id===r.id));
+  _allReportsCache=[...list,...keep];
+  searchReportsToLink();renderLinkedReports();
+}
+async function toggleLinkAllClients(on){showLoader('Cargando reportes…');try{await loadReportsToLink(on);}finally{hideLoader();}}
 const editCurrentTicket=openLinkReportModal; // nombre anterior, lo usa "Cambiar reporte vinculado"
 function searchReportsToLink(){
   const q=document.getElementById('link-rp-search').value.toLowerCase();
@@ -2211,7 +2227,7 @@ function searchReportsToLink(){
     (r.client?.businessName||'').toLowerCase().includes(q)||
     (r.description||'').toLowerCase().includes(q)||
     (r.technician?.name||'').toLowerCase().includes(q)
-  ):_allReportsCache.slice(0,20);
+  ):_allReportsCache.slice(0,100);
   const tMap={EN_SITIO:'tg',REMOTO:'tb2',TELEFONICO:'tp'};
   document.getElementById('link-rp-results').innerHTML=filtered.map(r=>{
     const linked=_linkedReports.includes(r.id);
@@ -4237,7 +4253,8 @@ async function loadPayablesBadge(){
 <div class="ov no-dismiss" id="m-link-report"><div class="modal xl">
   <div class="mhd"><h2>Vincular Reporte al Ticket</h2><button class="mclose" onclick="closeM('m-link-report')">&#x2715;</button></div>
   <div class="toolbar" style="margin-bottom:12px">
-    <div class="srch"><span class="srch-ic">🔍</span><input class="fi" id="link-rp-search" placeholder="N° reporte, cliente, descripción…" oninput="searchReportsToLink()" style="width:100%"></div>
+    <div class="srch"><span class="srch-ic">🔍</span><input class="fi" id="link-rp-search" placeholder="N° reporte, descripción, técnico…" oninput="searchReportsToLink()" style="width:100%"></div>
+    <label style="display:flex;align-items:center;gap:6px;font-size:.8rem;color:var(--text2);cursor:pointer;white-space:nowrap"><input type="checkbox" id="link-rp-all" onchange="toggleLinkAllClients(this.checked)" style="accent-color:var(--blue)"> Ver reportes de otros clientes</label>
   </div>
   <div id="link-rp-results" style="max-height:350px;overflow-y:auto;display:flex;flex-direction:column;gap:6px"></div>
   <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
