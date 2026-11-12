@@ -96,6 +96,12 @@ import { PrismaService } from '../common/prisma.service';
           return this.service.getRemotePassword(id);
     }
 
+  @Get(':id/client-changes')
+    clientChanges(@Param('id') id: string, @Request() req: any) {
+          if (req.user?.role === 'CLIENTE') throw new ForbiddenException('No autorizado');
+          return this.service.clientChanges(id);
+    }
+
   @Get(':id')
     async findOne(@Param('id') id: string, @Request() req: any) {
           const asset = await this.service.findOne(id);
@@ -119,7 +125,8 @@ import { PrismaService } from '../common/prisma.service';
 
   @Put(':id')
     async update(@Param('id') id: string, @Body() dto: any, @Request() req: any) {
-          if (req.user?.role === 'CLIENTE') throw new ForbiddenException('No autorizado');
+          // Clientes: edición limitada (ubicación, asignado, responsable, observaciones, estado) y con registro
+          if (req.user?.role === 'CLIENTE') return this.service.updateByClient(id, dto, { id: req.user.sub, clientId: req.user.clientId });
           try { return await this.service.update(id, dto); }
           catch (e: any) {
             if (e?.code === 'P2002') {

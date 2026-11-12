@@ -1,4 +1,4 @@
-﻿import { Injectable } from '@nestjs/common';
+﻿import { Injectable, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import * as ExcelJS from 'exceljs';
 import { encrypt, decrypt } from '../common/crypto.util';
@@ -91,6 +91,51 @@ export class AssetsService {
       include: { client: true, assetType: true },
     });
     return asset;
+  }
+
+  // ── Edición limitada para usuarios CLIENTE ─────────────────────────
+  static readonly CLIENT_EDITABLE = ['location', 'assignedUser', 'responsible', 'notes', 'status'] as const;
+
+  /** Un cliente solo puede cambiar estos campos y solo en activos de su empresa. Cada cambio queda registrado. */
+  async updateByClient(id: string, dto: any, user: { id: string; clientId?: string | null }) {
+    const asset = await this.prisma.asset.findUnique({ where: { id } });
+    if (!asset || !user?.clientId || asset.clientId !== user.clientId) {
+      throw new ForbiddenException('Este activo no pertenece a tu empresa');
+    }
+    const data: any = {};
+    const changes: Record<string, { from: any; to: any }> = {};
+    for (const f of AssetsService.CLIENT_EDITABLE) {
+      if (dto?.[f] === undefined) continue;
+      let v = dto[f];
+      if (f === 'status') {
+        if (!['ACTIVO', 'EN_MANTENIMIENTO', 'DADO_DE_BAJA'].includes(v)) throw new BadRequestException('Estado no válido');
+      } else {
+        v = v === null ? null : String(v).trim().slice(0, 2000) || null;
+      }
+      if ((asset as any)[f] !== v) {
+        data[f] = v;
+        changes[f] = { from: (asset as any)[f] ?? null, to: v };
+      }
+    }
+    if (!Object.keys(data).length) {
+      return this.prisma.asset.findUnique({ where: { id }, include: { client: true, assetType: true } });
+    }
+    const updated = await this.prisma.asset.update({ where: { id }, data, include: { client: true, assetType: true } });
+    await this.prisma.activityLog.create({
+      data: { userId: user.id, action: 'ASSET_CLIENT_UPDATE', entityType: 'asset', entityId: id, meta: { changes } as any },
+    }).catch(e => console.error('activityLog asset', e?.message));
+    return updated;
+  }
+
+  /** Historial de cambios hechos por clientes en un activo */
+  async clientChanges(id: string) {
+    const logs = await this.prisma.activityLog.findMany({
+      where: { entityType: 'asset', entityId: id, action: 'ASSET_CLIENT_UPDATE' },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+      include: { user: { select: { name: true, email: true } } },
+    });
+    return logs.map(l => ({ at: l.createdAt, user: l.user?.name || l.user?.email || '—', changes: (l.meta as any)?.changes || {} }));
   }
 
   async update(id: string, updateAssetDto: any) {

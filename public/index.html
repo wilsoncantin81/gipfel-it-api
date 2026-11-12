@@ -920,6 +920,7 @@ textarea.fi{resize:vertical;min-height:80px;line-height:1.5;}
     <div class="fr2"><div class="fg"><label>Nombre *</label><input class="fi" id="a-nombre"></div><div class="fg"><label>Responsable</label><input class="fi" id="a-resp"></div></div>
     <div class="fr2"><div class="fg"><label>ID AnyDesk</label><input class="fi" id="a-remoto" placeholder="123 456 789"></div><div class="fg"><label>Contraseña AnyDesk</label><div class="pass-wrap"><input class="fi" type="password" id="a-remote-pass" placeholder="Contraseña de acceso AnyDesk"><button class="pass-eye" type="button" onclick="togglePassField('a-remote-pass')">👁</button></div></div></div>
     <div class="fr2"><div class="fg"><label>Usuario del equipo (SO)</label><input class="fi" id="a-usuario" placeholder="Ej: jperez, Administrador…"></div><div class="fg"><label>Contraseña del equipo</label><div class="pass-wrap"><input class="fi" type="password" id="a-pass" placeholder="Contraseña Windows/Linux/Mac"><button class="pass-eye" type="button" onclick="togglePassField('a-pass')">👁</button></div></div></div>
+    <div class="fg"><label>Observaciones</label><textarea class="fi" id="a-notas" rows="2" placeholder="Notas sobre el equipo, cambios de ubicación, novedades…"></textarea></div>
     <div class="fr3"><div class="fg"><label>Dirección IP</label><input class="fi" id="a-ip"></div><div class="fg"><label>MAC</label><input class="fi" id="a-mac"></div><div class="fg"><label>Proveedor</label><input class="fi" id="a-prov"></div></div>
     <div class="fr3"><div class="fg"><label>Fecha compra</label><input class="fi" type="date" id="a-fcompra"></div><div class="fg"><label>Garantía hasta</label><input class="fi" type="date" id="a-fgar"></div><div class="fg"><label>Próximo mantenimiento</label><input class="fi" type="date" id="a-proxmant"></div></div>
     <div id="dyn-fields-wrap" style="margin-top:8px"></div>
@@ -930,6 +931,10 @@ textarea.fi{resize:vertical;min-height:80px;line-height:1.5;}
     <div class="det-card" style="margin-bottom:12px">
       <h3>Historial de Mantenimiento</h3>
       <div id="am-hist"></div>
+    </div>
+    <div class="det-card" id="am-client-changes-card" style="margin-bottom:12px;display:none">
+      <h3>Cambios hechos por el cliente</h3>
+      <div id="am-client-changes"></div>
     </div>
     <div class="det-card" style="margin-bottom:12px">
       <h3>Documentos</h3>
@@ -1544,6 +1549,7 @@ async function openAssetDetail(id){
     document.getElementById('a-remote-pass').value='';
     document.getElementById('a-pass').value='';
     document.getElementById('a-ubic').value=a.location||'';
+    {const n=document.getElementById('a-notas');if(n)n.value=a.notes||'';}
     document.getElementById('a-fcompra').value=a.purchaseDate?a.purchaseDate.split('T')[0]:'';
     document.getElementById('a-fgar').value=a.warrantyUntil?a.warrantyUntil.split('T')[0]:'';
     document.getElementById('a-proxmant').value=a.nextMaintenance?a.nextMaintenance.split('T')[0]:'';
@@ -1575,11 +1581,32 @@ async function openAssetDetail(id){
     setAssetModalMode('view');
     document.getElementById('mt-as').textContent=`${a.assetType?.name?a.assetType.name+' — ':''}${a.name}`;
     const isCliente=currentUser?.role==='CLIENTE';const isAdmin=currentUser?.role==='ADMIN';
-    const editBtn=document.getElementById('am-edit-btn');if(editBtn)editBtn.style.display=isCliente?'none':'';
+    const editBtn=document.getElementById('am-edit-btn');if(editBtn)editBtn.style.display='';
     const mantBtn=document.getElementById('am-mant-btn');if(mantBtn)mantBtn.style.display=isCliente?'none':'';
     const delBtn=document.getElementById('am-del-btn');if(delBtn)delBtn.style.display=isAdmin?'':'none';
+    if(!isCliente)loadAssetClientChanges(id);else{const cc=document.getElementById('am-client-changes-card');if(cc)cc.style.display='none';}
     openM('m-asset');
   }catch(e){toast('Error: '+e.message,'error');}finally{hideLoader();}
+}
+function escHtml(x){return String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+// Campos que un usuario CLIENTE puede editar en sus activos: [id del campo, propiedad]
+const CLIENT_ASSET_FIELDS=[['a-ubic','location'],['a-estado','status'],['a-resp','responsible'],['a-usuario','assignedUser'],['a-notas','notes']];
+async function loadAssetClientChanges(id){
+  const card=document.getElementById('am-client-changes-card');const box=document.getElementById('am-client-changes');
+  if(!card||!box)return;
+  card.style.display='none';
+  try{
+    const list=await GET(`/assets/${id}/client-changes`)||[];
+    if(!list.length)return;
+    const LBL={location:'Ubicación',status:'Estado',responsible:'Responsable',assignedUser:'Usuario del equipo',notes:'Observaciones'};
+    const ST={ACTIVO:'Activo',EN_MANTENIMIENTO:'En mantenimiento',DADO_DE_BAJA:'Dado de baja'};
+    const v=(k,x)=>x==null||x===''?'<em style="color:var(--text2)">vacío</em>':escHtml(k==='status'?(ST[x]||x):String(x));
+    box.innerHTML=list.map(l=>`<div style="padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="font-size:.75rem;color:var(--text2);margin-bottom:4px">${new Date(l.at).toLocaleString('es-CO',{dateStyle:'medium',timeStyle:'short'})} · <strong style="color:var(--text)">${escHtml(l.user)}</strong></div>
+      ${Object.entries(l.changes).map(([k,c])=>`<div style="font-size:.8rem">${LBL[k]||k}: ${v(k,c.from)} → ${v(k,c.to)}</div>`).join('')}
+    </div>`).join('');
+    card.style.display='';
+  }catch(e){/* sin historial */}
 }
 function setAssetModalMode(mode){
   const fields=document.querySelectorAll('#a-fields-wrap .fi');
@@ -1594,6 +1621,13 @@ function setAssetModalMode(mode){
 }
 function enableAssetEdit(){
   setAssetModalMode('edit');
+  if(currentUser?.role==='CLIENTE'){
+    const allowed=new Set(CLIENT_ASSET_FIELDS.map(f=>f[0]));
+    document.querySelectorAll('#a-fields-wrap .fi, #a-fields-wrap input, #a-fields-wrap select, #a-fields-wrap textarea').forEach(el=>{
+      const ok=allowed.has(el.id);el.disabled=!ok;el.style.opacity=ok?'1':'0.45';
+    });
+    document.querySelectorAll('#a-fields-wrap .pass-eye, #a-fields-wrap .char-add, #btn-add-char').forEach(el=>el.style.display='none');
+  }
   document.getElementById('mt-as').textContent='Editar Activo';
   document.getElementById('btn-cancel-asset').onclick=()=>{openAssetDetail(_currentAssetId);};
 }
@@ -1647,7 +1681,7 @@ async function showQRModal(){try{const r=await GET(`/assets/${_currentAssetId}/q
 function downloadQR(){const img=document.getElementById('qr-img');const a=document.createElement('a');a.href=img.src;a.download='qr.png';a.click();}
 function openAssetModal(){
   _editAssetId=null;document.getElementById('mt-as').textContent='Nuevo Activo TI';
-  clearForm(['a-nombre','a-codigo','a-marca','a-modelo','a-serial','a-prov','a-resp','a-ip','a-mac','a-remoto','a-pass','a-remote-pass','a-ubic','a-fcompra','a-fgar','a-proxmant','a-cliente-txt']);
+  clearForm(['a-nombre','a-codigo','a-marca','a-modelo','a-serial','a-prov','a-resp','a-ip','a-mac','a-remoto','a-pass','a-remote-pass','a-ubic','a-fcompra','a-fgar','a-proxmant','a-cliente-txt','a-notas']);
   document.getElementById('a-usuario').value='';
   document.getElementById('a-cliente-id').value='';document.getElementById('a-estado').value='ACTIVO';
   document.getElementById('extra-chars').innerHTML='';addChar();
@@ -1665,13 +1699,23 @@ function updateDynFields(){
 function addChar(k='',v=''){const cc=document.getElementById('extra-chars');const d=document.createElement('div');d.className='char-row';d.innerHTML=`<input class="fi" placeholder="Característica" value="${k}"><input class="fi" placeholder="Valor" value="${v}"><button class="rm-btn" onclick="this.parentElement.remove()">✕</button>`;cc.appendChild(d);}
 async function saveAsset(){
   const btn=document.getElementById('btn-save-asset');
+  if(currentUser?.role==='CLIENTE'){
+    // Cliente: solo los campos permitidos; el servidor valida y registra el cambio
+    const dto={};
+    for(const [id,key] of CLIENT_ASSET_FIELDS){const el=document.getElementById(id);if(el)dto[key]=el.value;}
+    btn.disabled=true;btn.textContent='Guardando…';
+    try{await PUT(`/assets/${_editAssetId}`,dto);toast('Activo actualizado','success');await openAssetDetail(_currentAssetId);}
+    catch(e){toast('Error: '+e.message,'error');}
+    finally{btn.disabled=false;btn.textContent='Guardar';}
+    return;
+  }
   const nombre=document.getElementById('a-nombre').value.trim();const cliente=document.getElementById('a-cliente-id').value;const tipo=document.getElementById('a-tipo').value;
   if(!nombre)return toast('El nombre del activo es obligatorio','error');
   if(!cliente)return toast('Debes seleccionar un cliente de la lista','error');
   if(!tipo)return toast('Debes seleccionar un tipo de activo','error');
   const extraFields={};document.querySelectorAll('.dyn-field').forEach(el=>{if(el.value)extraFields[el.dataset.key]=el.value;});document.querySelectorAll('#extra-chars .char-row').forEach(r=>{const ins=r.querySelectorAll('input');if(ins[0]?.value)extraFields[ins[0].value]=ins[1]?.value||'';});
   const assignedUser=document.getElementById('a-usuario').value.trim();
-  const dto={name:nombre,clientId:cliente,assetTypeId:tipo,code:document.getElementById('a-codigo').value,brand:document.getElementById('a-marca').value,model:document.getElementById('a-modelo').value,serial:document.getElementById('a-serial').value,purchaseDate:document.getElementById('a-fcompra').value||undefined,warrantyUntil:document.getElementById('a-fgar').value||undefined,supplier:document.getElementById('a-prov').value,assignedUser,responsible:document.getElementById('a-resp').value,ipAddress:document.getElementById('a-ip').value,macAddress:document.getElementById('a-mac').value,remoteAccess:document.getElementById('a-remoto').value,password:document.getElementById('a-pass').value,remoteAccessPassword:document.getElementById('a-remote-pass').value,status:document.getElementById('a-estado').value,location:document.getElementById('a-ubic').value,nextMaintenance:document.getElementById('a-proxmant').value||undefined,extraFields};
+  const dto={name:nombre,clientId:cliente,assetTypeId:tipo,code:document.getElementById('a-codigo').value,brand:document.getElementById('a-marca').value,model:document.getElementById('a-modelo').value,serial:document.getElementById('a-serial').value,purchaseDate:document.getElementById('a-fcompra').value||undefined,warrantyUntil:document.getElementById('a-fgar').value||undefined,supplier:document.getElementById('a-prov').value,assignedUser,responsible:document.getElementById('a-resp').value,ipAddress:document.getElementById('a-ip').value,macAddress:document.getElementById('a-mac').value,remoteAccess:document.getElementById('a-remoto').value,password:document.getElementById('a-pass').value,remoteAccessPassword:document.getElementById('a-remote-pass').value,status:document.getElementById('a-estado').value,location:document.getElementById('a-ubic').value,notes:(document.getElementById('a-notas')?.value??undefined),nextMaintenance:document.getElementById('a-proxmant').value||undefined,extraFields};
   btn.disabled=true;btn.textContent='Guardando…';
   try{if(_editAssetId){await PUT(`/assets/${_editAssetId}`,dto);toast('Activo actualizado','success');}else{await POST('/assets',dto);toast('Activo creado','success');}
     closeM('m-asset');loadBadges();
