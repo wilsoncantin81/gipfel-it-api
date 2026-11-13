@@ -389,6 +389,30 @@ textarea.fi{resize:vertical;min-height:80px;line-height:1.5;}
 /* ── CALENDARIO LAYOUT DOS COLUMNAS ── */
 .cal-layout{display:grid;grid-template-columns:260px 1fr;gap:16px;align-items:start;}
 @media(max-width:900px){.cal-layout{grid-template-columns:1fr;}}
+/* Panel del día */
+#m-cal-day .modal{width:640px;padding:18px 18px 22px;}
+.cd-head{display:flex;align-items:center;gap:8px;margin-bottom:14px;position:sticky;top:-18px;background:var(--s1);padding:6px 0;z-index:2;}
+.cd-head h2{flex:1;text-align:center;font-size:1.02rem;margin:0;}
+/* El botón del asistente no tapa ventanas abiertas */
+body:has(.ov.open) #ai-fab{display:none;}
+.cd-nav{background:var(--s2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:36px;height:36px;font-size:1.1rem;cursor:pointer;flex-shrink:0;}
+.cd-card{background:var(--s2);border:1px solid var(--border);border-left:4px solid var(--muted);border-radius:10px;padding:11px 12px;margin-bottom:9px;}
+.cd-top{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.72rem;color:var(--text2);margin-bottom:4px;}
+.cd-tag{padding:1px 7px;border-radius:10px;font-weight:700;font-size:.66rem;text-transform:uppercase;letter-spacing:.4px;}
+.cd-title{font-size:.9rem;font-weight:600;line-height:1.35;word-break:break-word;}
+.cd-sub{font-size:.78rem;color:var(--text2);margin-top:3px;word-break:break-word;}
+.cd-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;align-items:center;}
+.cd-actions .fi{margin:0;padding:6px 8px;font-size:.8rem;width:auto;min-height:34px;}
+.cd-actions .btn{min-height:34px;}
+.cd-sec{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text2);margin:18px 0 8px;}
+.cd-pend{display:flex;gap:8px;align-items:center;background:var(--s2);border:1px solid var(--border);border-radius:9px;padding:8px 10px;margin-bottom:6px;}
+.cd-pend-body{flex:1;min-width:0;font-size:.82rem;}
+.cd-pend-body small{display:block;color:var(--text2);font-size:.72rem;margin-top:1px;}
+@media(max-width:900px){
+  #m-cal-day{align-items:flex-end;}
+  #m-cal-day .modal{width:100%;max-width:100%;max-height:90vh;border-radius:18px 18px 0 0;padding:14px 14px 26px;}
+  .cd-head{top:-14px;}
+}
 /* Panel tickets pendientes */
 .cal-tk-panel{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:12px;position:sticky;top:16px;}
 .cal-tk-panel-hd{font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text2);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;}
@@ -3661,10 +3685,139 @@ function calCellInner(day,ds){
 function selectCalDay(ds){
   calSelectedDate=ds;
   buildCalGrid();
-  showCalDayPanel(ds);
+  openCalDaySheet(ds);
 }
 
+// ── PANEL DEL DÍA (ver completo, reagendar, cambiar técnico, agendar tickets) ──
+let _cdDate=null;
+const _cdDayNames=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+function _cdAddDays(ds,n){const [y,m,d]=ds.split('-').map(Number);const dt=new Date(y,m-1,d+n);return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;}
+function _cdTechs(){return (_technicians&&_technicians.length?_technicians:(window._techsData||[]));}
+function _cdIsOpen(){return document.getElementById('m-cal-day')?.classList.contains('open');}
+function openCalDaySheet(ds){
+  _cdDate=ds;calSelectedDate=ds;
+  const q=document.getElementById('cd-tk-q');if(q)q.value='';
+  const sel=document.getElementById('cd-tech');
+  if(sel){const cur=sel.value;sel.innerHTML='<option value="">Técnico del ticket</option>'+_cdTechs().map(t=>`<option value="${t.id}">${escHtml(t.name)}</option>`).join('');sel.value=cur;}
+  renderCalDaySheet();
+  openM('m-cal-day');
+}
+async function calDaySheetShift(n){
+  const nd=_cdAddDays(_cdDate,n);const [y,m]=nd.split('-').map(Number);
+  _cdDate=nd;calSelectedDate=nd;
+  if(y!==calYear||m-1!==calMonth){calYear=y;calMonth=m-1;showLoader('Cargando…');try{await renderCalendario();}finally{hideLoader();}}
+  else{buildCalGrid();renderCalDaySheet();}
+}
+function _cdEvLabel(ev){
+  if(ev.type!=='ticket')return {client:'',title:ev.title||''};
+  const segs=(ev.ticketLabel||'').split(' · ').map(x=>x.trim()).filter(Boolean);
+  const client=segs.length>1?segs[segs.length-1]:'';
+  let title=(ev.title||'').replace(/^#\w+\s*[·—-]?\s*/,'').trim();
+  if(title===client)title='';
+  if(client&&title.endsWith(' · '+client))title=title.slice(0,-(client.length+3));
+  return {client,title};
+}
+function renderCalDaySheet(){
+  if(!_cdDate)return;
+  const [y,m,d]=_cdDate.split('-').map(Number);
+  const dn=new Date(y,m-1,d);
+  const isToday=_cdDate===todayDateStr();
+  {const t=`${isToday?'Hoy, ':''}${_cdDayNames[dn.getDay()]} ${d} de ${MONTH_NAMES[m-1].toLowerCase()}`;document.getElementById('cd-title').textContent=t.charAt(0).toUpperCase()+t.slice(1);}
+  const evs=calEvents.filter(e=>e.date===_cdDate).sort((a,b)=>(a.timeStart||'').localeCompare(b.timeStart||''));
+  const techs=_cdTechs();
+  const ST={NUEVO:'Nuevo',EN_EJECUCION:'En ejecución',EN_ESPERA:'En espera',CERRADO:'Cerrado'};
+  const box=document.getElementById('cd-events');
+  if(!evs.length){
+    box.innerHTML='<div style="text-align:center;color:var(--text2);font-size:.85rem;padding:18px 0">No hay actividades ni tickets agendados este día.</div>';
+  }else{
+    box.innerHTML=evs.map(ev=>{
+      const color=CAL_TYPE_COLORS[ev.type]||'var(--muted)';
+      const tl=CAL_TYPE_LABELS[ev.type]||ev.type;
+      const {client,title}=_cdEvLabel(ev);
+      const time=ev.timeStart?ev.timeStart+(ev.timeEnd?' – '+ev.timeEnd:''):'';
+      const techOpts='<option value="">Sin técnico</option>'+techs.map(t=>`<option value="${t.id}" ${t.id===ev.techId?'selected':''}>${escHtml(t.name)}</option>`).join('');
+      return `<div class="cd-card" style="border-left-color:${color}">
+        <div class="cd-top">
+          <span class="cd-tag" style="background:${color}22;color:${color}">${escHtml(tl)}</span>
+          ${ev.ticketNum?`<span style="font-family:var(--mono)">#${escHtml(ev.ticketNum)}</span>`:''}
+          ${time?`<span>🕒 ${escHtml(time)}</span>`:''}
+          ${ev.ticketStatus?`<span>· ${escHtml(ST[ev.ticketStatus]||ev.ticketStatus)}</span>`:''}
+        </div>
+        <div class="cd-title">${client?`<span style="color:var(--blue)">${escHtml(client)}</span>${title?' · ':''}`:''}${escHtml(title)}</div>
+        <div class="cd-sub">👤 ${escHtml(ev.techName||'Sin técnico')}${ev.notes?` · ${escHtml(ev.notes)}`:''}</div>
+        <div class="cd-actions">
+          <label style="display:flex;align-items:center;gap:4px;font-size:.75rem;color:var(--text2)">📅<input type="date" class="fi" value="${ev.date}" onchange="cdMove('${ev.id}',this.value)" title="Reagendar"></label>
+          <button class="btn btn-ghost btn-sm" onclick="cdMove('${ev.id}','${_cdAddDays(ev.date,1)}')">Mañana</button>
+          <select class="fi" onchange="cdSetTech('${ev.id}',this.value)" title="Cambiar técnico">${techOpts}</select>
+          ${ev.ticketId?`<button class="btn btn-ghost btn-sm" onclick="cdOpenTicket('${ev.ticketId}')">🎫 Ver ticket</button>`:''}
+          <button class="btn btn-ghost btn-sm" onclick="openCalEventModal('${ev.date}','${ev.id}')" title="Editar">✏️</button>
+          <button class="btn btn-ghost btn-sm" onclick="cdDelete('${ev.id}')" title="Quitar del calendario" style="color:var(--red)">🗑</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  renderCdPending();
+}
+function renderCdPending(){
+  const box=document.getElementById('cd-pending');if(!box)return;
+  const q=_normTxt(document.getElementById('cd-tk-q')?.value||'');
+  const schedDate={};calEvents.forEach(e=>{if(e.ticketId&&!schedDate[e.ticketId])schedDate[e.ticketId]=e.date;});
+  const today=new Set(calEvents.filter(e=>e.date===_cdDate&&e.ticketId).map(e=>e.ticketId));
+  let list=(_calPendingTickets||[]).filter(t=>!today.has(t.id));
+  if(q)list=list.filter(t=>_normTxt([t.ticketNumber,t.title,t.client?.businessName].join(' ')).includes(q));
+  // primero los que no están agendados
+  list.sort((a,b)=>(schedDate[a.id]?1:0)-(schedDate[b.id]?1:0));
+  if(!list.length){box.innerHTML=`<div style="color:var(--text2);font-size:.8rem;padding:6px 0">${q?'Sin resultados':'No hay tickets pendientes por agendar'}</div>`;return;}
+  box.innerHTML=list.slice(0,40).map(t=>{
+    const sd=schedDate[t.id];
+    const info=[t.client?.businessName,techNamesOf(t),sd?`ya agendado ${sd.split('-').reverse().slice(0,2).join('/')}`:''].filter(Boolean).join(' · ');
+    return `<div class="cd-pend">
+      <div class="cd-pend-body"><span style="font-family:var(--mono);color:var(--blue);font-size:.74rem">${escHtml(t.ticketNumber||'')}</span> ${escHtml(t.title||'')}<small>${escHtml(info)}</small></div>
+      <button class="btn btn-primary btn-sm" onclick="cdSchedule('${t.id}')">Agendar</button>
+    </div>`;
+  }).join('');
+}
+async function cdMove(id,nd){
+  if(!nd)return;
+  const ev=calEvents.find(e=>e.id===id);if(ev&&ev.date===nd)return;
+  showLoader('Reagendando…');
+  try{await apiFetch(`/calendar/${id}`,'PUT',{date:nd});toast(`✓ Reagendado al ${nd.split('-').reverse().slice(0,2).join('/')}`,'success');await renderCalendario();}
+  catch(e){toast('Error al reagendar','error');}finally{hideLoader();}
+}
+async function cdSetTech(id,techId){
+  const t=_cdTechs().find(x=>x.id===techId);
+  showLoader('Guardando…');
+  try{await apiFetch(`/calendar/${id}`,'PUT',{techId:techId||null,techName:t?t.name:null});toast('✓ Técnico actualizado','success');await renderCalendario();}
+  catch(e){toast('Error al cambiar técnico','error');}finally{hideLoader();}
+}
+async function cdDelete(id){
+  if(!confirm('¿Quitar esta actividad del calendario? (el ticket no se borra)'))return;
+  showLoader('Quitando…');
+  try{await apiFetch(`/calendar/${id}`,'DELETE');toast('Quitado del calendario','success');await renderCalendario();}
+  catch(e){toast('Error al quitar','error');}finally{hideLoader();}
+}
+function cdOpenTicket(tid){closeM('m-cal-day');openTicketDetail(tid);}
+async function cdSchedule(tkId){
+  const tk=(_calPendingTickets||[]).find(t=>t.id===tkId);if(!tk)return;
+  const selTech=document.getElementById('cd-tech')?.value||'';
+  const techId=selTech||tk.assignedToId||tk.assignedTo?.id||'';
+  const tech=_cdTechs().find(x=>x.id===techId);
+  const techName=tech?tech.name:(tk.assignedTo?.name||'');
+  const client=tk.client?.businessName||'';
+  showLoader('Agendando…');
+  try{
+    await POST('/calendar',{date:_cdDate,type:'ticket',title:tk.title||tk.ticketNumber,ticketId:tk.id,ticketNum:tk.ticketNumber,
+      ticketLabel:`${tk.title||''}${client?' · '+client:''}`,techId:techId||undefined,techName:techName||undefined,timeStart:'08:00',timeEnd:'10:00'});
+    toast(`✓ ${tk.ticketNumber} agendado`,'success');
+    await renderCalendario();
+  }catch(e){toast('Error al agendar','error');}finally{hideLoader();}
+}
+
+// El panel lateral antiguo se reemplazó por el panel del día; esta función solo lo refresca si está abierto
 function showCalDayPanel(ds){
+  if(_cdIsOpen()){_cdDate=ds||_cdDate;renderCalDaySheet();}
+}
+function _oldShowCalDayPanel(ds){
   const evs=calEvents.filter(e=>e.date===ds).sort((a,b)=>(a.timeStart||'').localeCompare(b.timeStart||''));
   const [y,m,d]=ds.split('-').map(Number);
   const dn=new Date(y,m-1,d);
@@ -4478,6 +4631,23 @@ async function loadPayablesBadge(){
 </div></div>
 
 <!-- MODAL CALENDARIO: crear/editar evento -->
+<div class="ov" id="m-cal-day"><div class="modal wide">
+  <div class="cd-head">
+    <button class="cd-nav" onclick="calDaySheetShift(-1)" title="Día anterior">‹</button>
+    <h2 id="cd-title">–</h2>
+    <button class="cd-nav" onclick="calDaySheetShift(1)" title="Día siguiente">›</button>
+    <button class="mclose" onclick="closeM('m-cal-day')" style="margin-left:4px">✕</button>
+  </div>
+  <div id="cd-events"></div>
+  <button class="btn btn-primary" style="width:100%;margin-top:4px" onclick="openCalEventModal(_cdDate,null)">＋ Nueva actividad este día</button>
+  <div class="cd-sec">Agendar un ticket pendiente este día</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+    <input class="fi" id="cd-tk-q" placeholder="Buscar ticket o cliente…" oninput="renderCdPending()" style="margin:0;flex:1;min-width:150px">
+    <select class="fi" id="cd-tech" style="margin:0;width:auto;min-width:150px"><option value="">Técnico del ticket</option></select>
+  </div>
+  <div id="cd-pending"></div>
+</div></div>
+
 <div class="ov no-dismiss" id="m-cal-event"><div class="modal wide">
   <div class="mhd"><h2 id="mt-cal">Nueva Tarea</h2><button class="mclose" onclick="closeM('m-cal-event')">✕</button></div>
   <div class="fr2">
