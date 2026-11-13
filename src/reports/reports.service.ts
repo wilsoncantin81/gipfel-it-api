@@ -440,6 +440,8 @@ async sendEmail(id: string, toEmail?: string, cc?: string) {
     if (!recipient) throw new Error('No hay correo destinatario');
 
     const html = this.buildHtml(rpt);
+    const pdf = await this.getPDF(id);
+    const fileName = `${String(rpt.reportNumber || 'Reporte').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
 
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -450,6 +452,7 @@ async sendEmail(id: string, toEmail?: string, cc?: string) {
         cc: cc || undefined,
         subject: `Reporte de Servicio ${rpt.reportNumber} · ${client?.businessName || ''}`,
         html,
+        attachments: [{ filename: fileName, content: Buffer.from(pdf).toString('base64') }],
       }),
     });
 

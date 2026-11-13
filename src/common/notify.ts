@@ -62,6 +62,34 @@ export async function sendWhatsapp(toPhone: string, second: string, third?: stri
     }
 }
 
+/** Normaliza un celular a formato internacional (Colombia por defecto) */
+export function cleanPhone(toPhone: string): string {
+    let clean = (toPhone || '').replace(/[^0-9]/g, '');
+    if (clean.length === 10 && clean.startsWith('3')) clean = '57' + clean;
+    return clean;
+}
+
+/** Envía un PDF (u otro archivo) por WhatsApp. A diferencia de sendWhatsapp, lanza error si falla. */
+export async function sendWhatsappDocument(toPhone: string, file: Buffer, fileName: string, caption?: string): Promise<string> {
+    const serviceUrl = process.env.WA_SERVICE_URL;
+    const secret = process.env.WA_SERVICE_SECRET;
+    if (!serviceUrl) throw new Error('El servicio de WhatsApp no está configurado (WA_SERVICE_URL)');
+    const clean = cleanPhone(toPhone);
+    if (clean.length < 8) throw new Error('Número de celular inválido');
+    const res = await fetch(`${serviceUrl}/send-document`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(secret ? { 'x-api-secret': secret } : {}) },
+        body: JSON.stringify({ to: clean, base64: file.toString('base64'), fileName, mimetype: 'application/pdf', caption }),
+    });
+    if (!res.ok) {
+        let msg = `HTTP ${res.status}`;
+        try { msg = (await res.json() as any)?.error || msg; } catch { /* sin cuerpo */ }
+        if (res.status === 404) msg = 'El servicio de WhatsApp aún no tiene el envío de documentos (redesplegar whatsapp-service)';
+        throw new Error(msg);
+    }
+    return clean;
+}
+
 // ── WhatsApp vía Meta Cloud API (fallback / legacy) ─────────────────
 // Variables de entorno requeridas:
 //   WA_PHONE_NUMBER_ID  → ID del número de WhatsApp Business en Meta

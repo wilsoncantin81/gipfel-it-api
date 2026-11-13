@@ -2750,8 +2750,8 @@ async function confirmSendEmail(){
   const email=document.getElementById('send-email-addr').value.trim();
   const cc=document.getElementById('send-email-cc').value.trim();
   if(!email)return toast('Ingresa un correo','error');
-  closeM('m-send-email');showLoader('Enviando correo…');
-  try{await POST(`/reports/${_sendReportId}/send`,{email,cc:cc||undefined});toast('Correo enviado a '+email,'success');renderReportes();}
+  closeM('m-send-email');showLoader('Generando PDF y enviando correo…');
+  try{await POST(`/reports/${_sendReportId}/send`,{email,cc:cc||undefined});toast('✅ Reporte enviado en PDF a '+email,'success');renderReportes();}
   catch(e){toast('Error: '+e.message,'error');}finally{hideLoader();}
 }
 
@@ -5449,16 +5449,15 @@ async function whatsappCurrentReport(){
   if(!_currentReport)return;
   const r=_currentReport;
   // Usar teléfono del cliente; si no tiene, pedirlo
-  let phone=r.client?.phone||'';
-  if(!phone){
-    phone=prompt(`El cliente "${r.client?.businessName||'cliente'}" no tiene teléfono registrado.\nIngresa el número (ej: +573001234567):`)||'';
-    if(!phone)return;
-  }
+  const def=r.client?.phone||'';
+  let phone=prompt(`Enviar el PDF del reporte ${r.reportNumber||''} por WhatsApp al número:`+(def?'':'\n(El cliente no tiene teléfono registrado)'),def);
+  if(phone===null)return;
   phone=phone.replace(/\s/g,'');
-  showLoader('Enviando por WhatsApp…');
+  if(!phone)return toast('Ingresa un número','error');
+  showLoader('Generando PDF y enviando por WhatsApp…');
   try{
     await POST('/reports/'+r.id+'/send-whatsapp',{phone});
-    toast('✅ Reporte enviado por WhatsApp a '+phone,'success');
+    toast('✅ PDF del reporte enviado por WhatsApp a '+phone,'success');
   }catch(e){toast('Error enviando WhatsApp: '+(e.message||''),'error');}finally{hideLoader();}
 }
 </script>

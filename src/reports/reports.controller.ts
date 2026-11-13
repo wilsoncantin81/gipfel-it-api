@@ -1,9 +1,9 @@
-import { Controller, Get, Post, Put, Param, Body, Query, UseGuards, Res, Request, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Param, Body, Query, UseGuards, Res, Request, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Response } from 'express';
 import { ReportsService } from './reports.service';
-import { sendWhatsapp } from '../common/notify';
+import { sendWhatsappDocument } from '../common/notify';
 @ApiTags('Reportes') @ApiBearerAuth() @UseGuards(AuthGuard('jwt')) @Controller('reports')
   export class ReportsController {
     constructor(private readonly service: ReportsService) {}
@@ -64,14 +64,20 @@ import { sendWhatsapp } from '../common/notify';
     const r = await this.service.findOne(id) as any;
     if (!r) throw new ForbiddenException('Reporte no encontrado');
     const phone = body?.phone;
-    if (!phone) return { error: 'Se requiere phone' };
-    const text =
-      `*Reporte ${r.reportNumber}*\n` +
+    if (!phone) throw new BadRequestException('Se requiere el número de celular');
+    const pdf = await this.service.getPDF(id);
+    const caption =
+      `*Reporte de servicio ${r.reportNumber}*\n` +
       `Cliente: ${r.client?.businessName || '–'}\n` +
-      `Fecha: ${r.date || '–'}\n` +
-      `Técnico: ${r.technician?.name || '–'}\n` +
-      `Descripción: ${(r.description || '').slice(0, 200)}`;
-    await sendWhatsapp(phone, text);
-    return { ok: true };
+      `Fecha: ${r.date ? new Date(r.date).toLocaleDateString('es-CO', { timeZone: 'America/Bogota' }) : '–'}\n` +
+      `Técnico: ${r.technician?.name || '–'}\n\n` +
+      `Grupo Gipfel · Adjuntamos el reporte en PDF.`;
+    const fileName = `${(r.reportNumber || 'Reporte').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+    try {
+      const to = await sendWhatsappDocument(phone, Buffer.from(pdf), fileName, caption);
+      return { ok: true, to };
+    } catch (e: any) {
+      throw new BadRequestException(`No se pudo enviar por WhatsApp: ${e?.message || e}`);
+    }
   }
 }
